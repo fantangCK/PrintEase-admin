@@ -1,202 +1,104 @@
-# PrintEase Admin 印易自助 - 管理后台
+<img  src="https://www.qiniu.lingchen.kim/github-cover-light6.webp" />
 
-印易自助打印管理后台，基于 Vue 3 + TypeScript + Element Plus 开发。
+<br />
+<h1 align="center">Art Design Pro</h1>
+<p align="center">A backend system template that combines design aesthetics with efficient development, helping you quickly build professional-grade applications</p>
+<div align="center">English | <a href="./README.zh-CN.md">简体中文</a></div>
 
-## 技术栈
+<br />
+<div align="center">
 
-- **前端框架**: Vue 3 (Composition API)
-- **UI组件库**: Element Plus
-- **开发语言**: TypeScript
-- **构建工具**: Vite
-- **路由**: Vue Router
-- **状态管理**: Pinia
-- **HTTP客户端**: Axios
+[![license](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE) [![github stars](https://img.shields.io/github/stars/Daymychen/art-design-pro)](https://github.com/Daymychen/art-design-pro/stargazers) [![github forks](https://img.shields.io/github/forks/Daymychen/art-design-pro)](https://github.com/Daymychen/art-design-pro/network/members)
 
-## 功能特性
+</div>
+<br />
 
-### 1. 仪表盘 (Dashboard)
-- 今日订单数统计
-- 打印任务统计
-- 收入统计
-- 实时数据展示
+## What makes this project special?
 
-### 2. 订单管理
-- 订单列表查看
-- 订单详情查询
-- 订单状态管理
-- 订单数据导出
+**Interface Design**: Modern UI design with smooth interactions, focusing on user experience and visual design
 
-### 3. 云印调度管理
-- 节点列表管理
-- 节点状态监控
-- 打印任务队列查看
-- 任务分配管理
+**Quick Start**: Clean architecture + comprehensive documentation, easy for backend developers to use
 
-### 4. 用户管理
-- 用户列表查看
-- 用户详情查询
-- 用户状态管理
+**Rich Components**: Built-in high-quality components for data display, forms, and more to meet different business scenarios
 
-### 5. 系统设置
-- 打印价格配置
-- 打印参数配置
-- 管理员账号管理
-- 系统参数配置
+**Smooth Interactions**: Button clicks, theme switching, page transitions, chart animations - experience comparable to commercial products
 
-## 项目结构
+**Efficient Development**: Built-in practical APIs like useTable and ArtForm to significantly improve development efficiency
 
-```
-PrintEase-admin/
-├── src/
-│   ├── views/              # 页面组件
-│   │   ├── dashboard/      # 仪表盘
-│   │   │   └── index.vue
-│   │   ├── order/          # 订单管理
-│   │   │   ├── list.vue
-│   │   │   └── detail.vue
-│   │   ├── dispatch/       # 云印调度管理
-│   │   │   ├── nodes.vue
-│   │   │   └── tasks.vue
-│   │   ├── user/           # 用户管理
-│   │   │   └── list.vue
-│   │   └── system/         # 系统设置
-│   │       ├── price.vue
-│   │       └── admin.vue
-│   ├── components/         # 公共组件
-│   │   ├── layout/         # 布局组件
-│   │   │   ├── Sidebar.vue
-│   │   │   └── Header.vue
-│   │   └── common/         # 通用组件
-│   ├── api/                # API接口
-│   │   ├── index.ts
-│   │   ├── order.ts
-│   │   ├── dispatch.ts
-│   │   ├── user.ts
-│   │   └── system.ts
-│   ├── router/             # 路由配置
-│   │   └── index.ts
-│   ├── store/              # 状态管理
-│   │   ├── index.ts
-│   │   └── modules/
-│   ├── utils/              # 工具函数
-│   │   ├── request.ts
-│   │   └── auth.ts
-│   ├── types/              # TypeScript类型定义
-│   ├── App.vue
-│   └── main.ts
-├── public/                 # 静态资源
-├── package.json
-├── vite.config.ts
-├── tsconfig.json
-├── .env
-├── .env.example
-├── Dockerfile
-├── Dockerfile.dev
-└── README.md
-```
+**Clean Scripts**: Built-in one-click cleanup script to quickly remove demo data and get a ready-to-develop base project
 
-## 快速开始
+## Tech Stack
 
-### 环境要求
+Development Framework: Vue3, TypeScript, Vite, Element-Plus, Tailwind CSS
 
-- Node.js 18+
-- npm 或 pnpm
+Code Standards: Eslint, Prettier, Stylelint, Husky, Lint-staged, cz-git
 
-### 安装依赖
+## Preview
+
+<kbd><img src="https://www.qiniu.lingchen.kim/github-c1.webp" alt="Light Theme"/></kbd>
+
+<kbd><img src="https://www.qiniu.lingchen.kim/github-c2.webp" alt="Light Theme"/></kbd>
+
+<kbd><img src="https://www.qiniu.lingchen.kim/github-c4.webp" alt="Dark Theme"/></kbd>
+
+<kbd><img src="https://www.qiniu.lingchen.kim/github-c5.webp" alt="Dark Theme"/></kbd>
+
+## Quick Access
+
+[Live Demo](https://www.artd.pro) | [Official Documentation](https://www.artd.pro/docs) | [Changelog](./CHANGELOG.en.md)
+
+## Installation & Setup
 
 ```bash
-cd PrintEase-admin
-npm install
+# Install dependencies
+pnpm install
+
+# If pnpm install fails, try using the command below
+pnpm install --ignore-scripts
+
+# Start local development environment
+pnpm dev
+
+# Build for production
+pnpm build
 ```
 
-### 开发环境运行
+## Clean Version
+
+The project includes a cleanup script to quickly remove demo data and provide developers with a ready-to-develop base project
 
 ```bash
-npm run dev
+pnpm clean:dev
 ```
 
-访问地址: http://localhost:5173
+## Technical Support
 
-### 生产环境构建
+QQ Group: <a href="https://qm.qq.com/cgi-bin/qm/qr?k=Gg6yzZLFaNgmRhK0T5Qcjf7-XcAFWWXm&jump_from=webapi&authKey=YpRKVJQyFKYbGTiKw0GJ/YQXnNF+GdXNZC5beQQqnGZTvuLlXoMO7nw5fNXvmVhA">1038930070</a> (Click the link to join the group chat)
 
-```bash
-npm run build
-```
+## Browser Compatibility
 
-### Docker 部署
+Supports modern mainstream browsers including Chrome, Safari, Firefox, and more.
 
-```bash
-# 开发环境
-docker build -f Dockerfile.dev -t printease-admin:dev .
-docker run -p 5173:5173 printease-admin:dev
+## Contributing
 
-# 生产环境
-docker build -f Dockerfile -t printease-admin:latest .
-docker run -p 80:80 printease-admin:latest
-```
+We sincerely welcome and appreciate the support of every contributor! Whether you have new ideas, feature suggestions, or code optimizations, you can participate in the following ways:
 
-## 环境变量配置
+Submit Pull Requests: Share your code and help the project grow.
 
-创建 `.env` 文件：
+Create GitHub Issues: Provide bug feedback or new feature suggestions to help us improve together.
 
-```env
-VITE_API_BASE_URL=http://localhost:3000/api
-VITE_APP_TITLE=印易自助管理后台
-```
+Every contribution you make takes this project one step further! Come join our open source community!
 
-## API 接口
+## Continuous Optimization & Extension
 
-### 基础配置
+The project maintains active updates, supports the latest frontend tech stack, is compatible with mainstream frameworks, and ensures long-term stability and extensibility. Community-driven feedback mechanisms allow your needs to be quickly integrated into project iterations.
 
-- 后端API地址: `http://localhost:3000/api`
-- 认证方式: JWT Token
+## Donation
 
-### 主要接口
+If you feel this project has reduced your development costs and solved problems in your work/life, you can support us through the following ways:
 
-| 模块 | 接口 | 说明 |
-|------|------|------|
-| 认证 | POST /api/auth/login | 管理员登录 |
-| 订单 | GET /api/orders | 获取订单列表 |
-| 订单 | GET /api/orders/:id | 获取订单详情 |
-| 订单 | PUT /api/orders/:id/status | 更新订单状态 |
-| 云印调度 | GET /api/dispatch/nodes | 获取节点列表 |
-| 云印调度 | GET /api/dispatch/tasks | 获取任务列表 |
-| 用户 | GET /api/users | 获取用户列表 |
+<img src="https://www.qiniu.lingchen.kim/%E7%BB%84%202%402x%202.png" alt="Donation QR Code"/>
 
-## 开发规范
+## Star History
 
-### 代码规范
-
-- 使用 TypeScript 严格模式
-- 遵循 Vue 3 Composition API 最佳实践
-- 使用 ESLint 进行代码检查
-- 使用 Prettier 格式化代码
-
-### Git 提交规范
-
-```
-feat: 新功能
-fix: 修复bug
-docs: 文档更新
-style: 代码格式调整
-refactor: 重构
-test: 测试相关
-chore: 构建/工具相关
-```
-
-## 浏览器支持
-
-- Chrome (最新版)
-- Firefox (最新版)
-- Edge (最新版)
-- Safari (最新版)
-
-## 相关项目
-
-- [PrintEase-uniapp](../PrintEase-uniapp) - 印易小程序
-- [PrintEase-backend](../PrintEase-backend) - 印易后台
-- [PrintEase-dispatch](../PrintEase-dispatch) - 云印调度
-
-## License
-
-MIT
+[![Star History Chart](https://api.star-history.com/svg?repos=Daymychen/art-design-pro&type=Date)](https://www.star-history.com/#Daymychen/art-design-pro&Date)
