@@ -1,33 +1,130 @@
 <img  src="https://www.qiniu.lingchen.kim/github-cover-light6.webp" />
 
-<br />
-<h1 align="center">Art Design Pro</h1>
-<p align="center">A backend system template that combines design aesthetics with efficient development, helping you quickly build professional-grade applications</p>
-<div align="center">English | <a href="./README.zh-CN.md">简体中文</a></div>
+印易自助打印管理后台，为系统管理员提供完整的运营管理功能。
 
-<br />
-<div align="center">
+## 项目状态
 
-[![license](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE) [![github stars](https://img.shields.io/github/stars/Daymychen/art-design-pro)](https://github.com/Daymychen/art-design-pro/stargazers) [![github forks](https://img.shields.io/github/forks/Daymychen/art-design-pro)](https://github.com/Daymychen/art-design-pro/network/members)
+**待开发** - 此模块目前仅包含 README 文档，实际代码尚未实现。
 
-</div>
-<br />
+管理后台的部分功能已在 [PrintEase-uniapp](../PrintEase-uniapp) 小程序中通过管理员页面实现。
 
-## What makes this project special?
+## 技术栈（计划）
 
-**Interface Design**: Modern UI design with smooth interactions, focusing on user experience and visual design
+- **前端框架**: Vue 3 (Composition API)
+- **UI 组件库**: Element Plus
+- **开发语言**: TypeScript
+- **构建工具**: Vite
+- **路由**: Vue Router
+- **状态管理**: Pinia
+- **HTTP 客户端**: Axios
+- **图表库**: ECharts
 
-**Quick Start**: Clean architecture + comprehensive documentation, easy for backend developers to use
+## 功能特性（计划）
 
-**Rich Components**: Built-in high-quality components for data display, forms, and more to meet different business scenarios
+### 1. 仪表盘 (Dashboard)
 
-**Smooth Interactions**: Button clicks, theme switching, page transitions, chart animations - experience comparable to commercial products
+- 今日订单数统计
+- 打印任务统计
+- 收入统计
+- 实时数据展示
+- 数据趋势图表
 
-**Efficient Development**: Built-in practical APIs like useTable and ArtForm to significantly improve development efficiency
+### 2. 订单管理
 
-**Clean Scripts**: Built-in one-click cleanup script to quickly remove demo data and get a ready-to-develop base project
+- 订单列表查看（支持分页、筛选、搜索）
+- 订单详情查询
+- 订单状态管理
+- 订单数据导出
+- 订单退款处理
 
-## Tech Stack
+### 3. 云印调度管理
+
+- 节点列表管理
+- 节点状态监控
+- 打印任务队列查看
+- 任务分配管理
+- 节点上下线记录
+
+### 4. 用户管理
+
+- 用户列表查看
+- 用户详情查询
+- 用户状态管理
+- 用户数据统计
+
+### 5. 商户管理
+
+- 商户列表查看
+- 创建/编辑商户
+- 商户状态管理
+- 商户收益统计
+- 商户权限配置
+
+### 6. 系统设置
+
+- 打印价格配置
+- 打印参数配置
+- 管理员账号管理
+- 系统参数配置
+- 公告管理
+
+## 项目结构（计划）
+
+```
+PrintEase-admin/
+├── src/
+│   ├── views/              # 页面组件
+│   │   ├── dashboard/      # 仪表盘
+│   │   │   └── index.vue
+│   │   ├── order/          # 订单管理
+│   │   │   ├── list.vue
+│   │   │   └── detail.vue
+│   │   ├── dispatch/       # 云印调度管理
+│   │   │   ├── nodes.vue
+│   │   │   └── tasks.vue
+│   │   ├── user/           # 用户管理
+│   │   │   └── list.vue
+│   │   ├── merchant/       # 商户管理
+│   │   │   ├── list.vue
+│   │   │   └── create.vue
+│   │   └── system/         # 系统设置
+│   │       ├── price.vue
+│   │       └── admin.vue
+│   ├── components/         # 公共组件
+│   │   ├── layout/         # 布局组件
+│   │   │   ├── Sidebar.vue
+│   │   │   └── Header.vue
+│   │   └── common/         # 通用组件
+│   ├── api/                # API 接口
+│   │   ├── index.ts
+│   │   ├── order.ts
+│   │   ├── dispatch.ts
+│   │   ├── user.ts
+│   │   ├── merchant.ts
+│   │   └── system.ts
+│   ├── router/             # 路由配置
+│   │   └── index.ts
+│   ├── store/              # 状态管理
+│   │   ├── index.ts
+│   │   └── modules/
+│   ├── utils/              # 工具函数
+│   │   ├── request.ts
+│   │   └── auth.ts
+│   ├── types/              # TypeScript 类型定义
+│   ├── App.vue
+│   └── main.ts
+├── public/                 # 静态资源
+├── package.json
+├── vite.config.ts
+├── tsconfig.json
+├── .env
+├── .env.example
+├── Dockerfile
+├── Dockerfile.dev
+└── README.md
+```
+
+## 快速开始（计划）
 
 Development Framework: Vue3, TypeScript, Vite, Element-Plus, Tailwind CSS
 
@@ -77,28 +174,76 @@ QQ Group: <a href="https://qm.qq.com/cgi-bin/qm/qr?k=Gg6yzZLFaNgmRhK0T5Qcjf7-XcA
 
 ## Browser Compatibility
 
-Supports modern mainstream browsers including Chrome, Safari, Firefox, and more.
+### Docker 部署（计划）
 
 ## Contributing
 
 We sincerely welcome and appreciate the support of every contributor! Whether you have new ideas, feature suggestions, or code optimizations, you can participate in the following ways:
 
-Submit Pull Requests: Share your code and help the project grow.
+## 环境变量配置（计划）
 
 Create GitHub Issues: Provide bug feedback or new feature suggestions to help us improve together.
 
 Every contribution you make takes this project one step further! Come join our open source community!
 
-## Continuous Optimization & Extension
+## API 接口（计划）
 
 The project maintains active updates, supports the latest frontend tech stack, is compatible with mainstream frameworks, and ensures long-term stability and extensibility. Community-driven feedback mechanisms allow your needs to be quickly integrated into project iterations.
 
-## Donation
+- 后端 API 地址: `http://localhost:3000/api`
+- 认证方式: JWT Token
 
 If you feel this project has reduced your development costs and solved problems in your work/life, you can support us through the following ways:
 
-<img src="https://www.qiniu.lingchen.kim/%E7%BB%84%202%402x%202.png" alt="Donation QR Code"/>
+| 模块     | 接口                       | 说明         |
+| -------- | -------------------------- | ------------ |
+| 认证     | POST /api/auth/admin       | 管理员登录   |
+| 订单     | GET /api/orders            | 获取订单列表 |
+| 订单     | GET /api/orders/:id        | 获取订单详情 |
+| 订单     | PUT /api/orders/:id/status | 更新订单状态 |
+| 云印调度 | GET /api/dispatch/nodes    | 获取节点列表 |
+| 云印调度 | GET /api/dispatch/tasks    | 获取任务列表 |
+| 用户     | GET /api/users             | 获取用户列表 |
+| 商户     | GET /api/merchants         | 获取商户列表 |
+| 商户     | POST /api/merchants        | 创建商户     |
+| 系统     | GET /api/system/price      | 获取价格配置 |
+| 系统     | PUT /api/system/price      | 更新价格配置 |
 
-## Star History
+## 开发规范（计划）
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Daymychen/art-design-pro&type=Date)](https://www.star-history.com/#Daymychen/art-design-pro&Date)
+### 代码规范
+
+- 使用 TypeScript 严格模式
+- 遵循 Vue 3 Composition API 最佳实践
+- 使用 ESLint 进行代码检查
+- 使用 Prettier 格式化代码
+
+### Git 提交规范
+
+```
+feat: 新功能
+fix: 修复bug
+docs: 文档更新
+style: 代码格式调整
+refactor: 重构
+test: 测试相关
+chore: 构建/工具相关
+```
+
+## 浏览器支持（计划）
+
+- Chrome (最新版)
+- Firefox (最新版)
+- Edge (最新版)
+- Safari (最新版)
+
+## 相关项目
+
+- [PrintEase-uniapp](../PrintEase-uniapp) - 印易小程序（包含管理员页面）
+- [PrintEase-backend](../PrintEase-backend) - 印易后台
+- [PrintEase-dispatch](../PrintEase-dispatch) - 云印调度
+- [mpay](../mpay) - 印易支付系统
+
+## License
+
+MIT
