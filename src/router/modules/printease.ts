@@ -3,15 +3,16 @@
  *
  * 管理后台核心业务路由：仪表盘、订单、商户、用户、系统、收入、调度
  */
-import { $t } from '@/locales'
+import { RoutesAlias } from '../routesAlias'
 
 export const printeaseRoutes = [
   {
     path: '/printease',
     redirect: '/printease/dashboard',
+    component: RoutesAlias.Layout,
     meta: {
       icon: 'pe:home',
-      title: $t('route.printease'),
+      title: '工作台',
       order: 1
     },
     children: [
@@ -20,7 +21,7 @@ export const printeaseRoutes = [
         component: '/pe/dashboard',
         meta: {
           icon: 'pe:dashboard',
-          title: $t('route.dashboard'),
+          title: '仪表盘',
           order: 10
         }
       },

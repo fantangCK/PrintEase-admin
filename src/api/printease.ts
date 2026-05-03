@@ -13,14 +13,16 @@ import axios from 'axios'
 
 export function fetchDashboardStats() {
   return request.get<Api.PrintEase.DashboardStats>({
-    url: '/api/orders/admin/orders/stats'
+    url: '/api/orders/admin/orders/stats',
+    showErrorMessage: false
   })
 }
 
 export function fetchRecentOrders(params?: Api.PrintEase.OrderSearchParams) {
   return request.get<Api.PrintEase.OrderListResponse>({
     url: '/api/orders/admin/list',
-    params: { ...params, limit: 5 }
+    params: { ...params, limit: 5 },
+    showErrorMessage: false
   })
 }
 

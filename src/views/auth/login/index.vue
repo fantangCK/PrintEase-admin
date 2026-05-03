@@ -229,6 +229,7 @@
         throw new Error('Login failed - no token received')
       }
 
+      // 保存登录信息
       userStore.setToken(token)
       userStore.setLoginStatus(true)
       userStore.setUserInfo({
@@ -248,7 +249,11 @@
 
       // 获取 redirect 参数，如果存在则跳转到指定页面，否则跳转到首页
       const redirect = route.query.redirect as string
-      router.push(redirect || '/')
+      const targetPath = redirect || '/'
+
+      // 使用 nextTick 确保状态更新后再跳转
+      await nextTick()
+      await router.push(targetPath)
     } catch (error) {
       // 处理 HttpError
       if (error instanceof HttpError) {

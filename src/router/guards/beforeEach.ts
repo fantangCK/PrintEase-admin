@@ -275,8 +275,18 @@ async function handleDynamicRoutes(
   loadingService.showLoading()
 
   try {
-    // 1. 获取用户信息
-    await fetchUserInfo()
+    // 1. 获取用户信息（非关键步骤：登录时已缓存用户信息，非401错误可安全跳过）
+    try {
+      await fetchUserInfo()
+    } catch (err) {
+      if (isUnauthorizedError(err)) {
+        throw err
+      }
+      console.warn(
+        '[RouteGuard] 获取用户信息失败（使用缓存的用户信息继续）:',
+        (err as Error)?.message
+      )
+    }
 
     // 2. 获取菜单数据
     const menuList = await menuProcessor.getMenuList()
@@ -337,7 +347,7 @@ async function handleDynamicRoutes(
         replace: true
       })
     } else {
-      // 有权限，正常导航（关闭 loading 后再跳转，防止全屏锁死页面）
+      // 有权限，正常导航
       closeLoading()
       next({
         path: to.path,
@@ -352,10 +362,11 @@ async function handleDynamicRoutes(
     // 关闭 loading
     closeLoading()
 
+    // 重置进行中标记
+    routeInitInProgress = false
+
     // 401 错误：axios 拦截器已处理退出登录，取消当前导航
     if (isUnauthorizedError(error)) {
-      // 重置状态，允许重新登录后再次初始化
-      routeInitInProgress = false
       next(false)
       return
     }
@@ -363,7 +374,6 @@ async function handleDynamicRoutes(
     // 标记初始化失败，防止死循环（仅当 backend 不可达或其他持久错误时）
     // 用户可通过成功登录或页面刷新来恢复此状态
     routeInitFailed = true
-    routeInitInProgress = false
 
     // 输出详细错误信息，便于排查
     if (isHttpError(error)) {
