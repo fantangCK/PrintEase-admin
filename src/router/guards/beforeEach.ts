@@ -351,27 +351,94 @@ async function handleDynamicRoutes(
     // 关闭 loading
     closeLoading()
 
+    // 重置路由初始化状态，允许重新尝试
+    routeInitInProgress = false
+    routeInitFailed = false
+
     // 401 错误：axios 拦截器已处理退出登录，取消当前导航
     if (isUnauthorizedError(error)) {
-      // 重置状态，允许重新登录后再次初始化
-      routeInitInProgress = false
       next(false)
       return
     }
 
-    // 标记初始化失败，防止死循环（仅当 backend 不可达或其他持久错误时）
-    // 用户可通过成功登录或页面刷新来恢复此状态
-    routeInitFailed = true
-    routeInitInProgress = false
-
-    // 输出详细错误信息，便于排查
-    if (isHttpError(error)) {
-      console.error(`[RouteGuard] 错误码: ${error.code}, 消息: ${error.message}`)
+    // 如果是网络错误或服务器错误，尝试使用本地路由配置继续
+    if (isNetworkOrServerError(error)) {
+      console.warn('[RouteGuard] API 请求失败，尝试使用本地路由配置继续...')
+      
+      // 尝试使用前端模式配置的路由
+      try {
+        const menuProcessor = new MenuProcessor()
+        // 直接使用 asyncRoutes 而不是调用 API
+        const { asyncRoutes } = await import('../routes/asyncRoutes')
+        const { useUserStore } = await import('@/store/modules/user')
+        const userStore = useUserStore()
+        
+        // 根据用户角色过滤路由
+        let menuList = [...asyncRoutes]
+        const roles = userStore.info?.roles
+        if (roles && roles.length > 0) {
+          menuList = filterMenuByRoles(menuList, roles)
+        }
+        
+        if (menuList.length > 0) {
+          // 注册路由
+          routeRegistry?.register(menuList)
+          
+          // 保存菜单
+          const menuStore = useMenuStore()
+          menuStore.setMenuList(menuList)
+          menuStore.addRemoveRouteFns(routeRegistry?.getRemoveRouteFns() || [])
+          
+          // 允许继续导航
+          next({
+            path: to.path,
+            query: to.query,
+            hash: to.hash,
+            replace: true
+          })
+          return
+        }
+      } catch (fallbackError) {
+        console.error('[RouteGuard] 使用本地路由配置也失败:', fallbackError)
+      }
     }
 
-    // 跳转到 500 页面，使用 replace 避免产生历史记录
+    // 其他错误：跳转到 500 页面
     next({ name: 'Exception500', replace: true })
   }
+}
+
+/**
+ * 根据角色过滤菜单
+ */
+function filterMenuByRoles(menu: AppRouteRecord[], roles: string[]): AppRouteRecord[] {
+  return menu.reduce((acc: AppRouteRecord[], item) => {
+    const itemRoles = item.meta?.roles
+    const hasPermission = !itemRoles || itemRoles.some((role) => roles?.includes(role))
+
+    if (hasPermission) {
+      const filteredItem = { ...item }
+      if (filteredItem.children?.length) {
+        filteredItem.children = filterMenuByRoles(filteredItem.children, roles)
+      }
+      acc.push(filteredItem)
+    }
+
+    return acc
+  }, [])
+}
+
+/**
+ * 判断是否为网络错误或服务器错误
+ */
+function isNetworkOrServerError(error: unknown): boolean {
+  if (isHttpError(error)) {
+    // 网络错误 (code: 400 或其他非401的错误码)
+    // 或者 HTTP 5xx 错误
+    return error.code >= 400 && error.code !== 401 && error.code !== 403
+  }
+  // 如果是普通 Error，也当作网络错误处理
+  return error instanceof Error
 }
 
 /**

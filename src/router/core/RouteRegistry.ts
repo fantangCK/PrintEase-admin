@@ -43,16 +43,25 @@ export class RouteRegistry {
       throw new Error(`路由配置验证失败: ${validationResult.errors.join(', ')}`)
     }
 
-    // 转换并注册路由
+    // 转换并注册所有路由（包括子路由）
     const removeRouteFns: (() => void)[] = []
-
-    menuList.forEach((route) => {
-      if (route.name && !this.router.hasRoute(route.name)) {
+    
+    const registerRoute = (route: AppRouteRecord) => {
+      const routeName = route.name as string | undefined
+      const shouldRegister = route.path && (!routeName || !this.router.hasRoute(routeName))
+      if (shouldRegister) {
         const routeConfig = this.transformer.transform(route)
         const removeRouteFn = this.router.addRoute(routeConfig as RouteRecordRaw)
         removeRouteFns.push(removeRouteFn)
       }
-    })
+      
+      // 递归注册子路由
+      if (route.children?.length) {
+        route.children.forEach(child => registerRoute(child))
+      }
+    }
+    
+    menuList.forEach(route => registerRoute(route))
 
     this.removeRouteFns = removeRouteFns
     this.registered = true
