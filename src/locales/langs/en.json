@@ -154,6 +154,9 @@
     "success": {
       "title": "Login successful",
       "message": "Welcome back"
+    },
+    "error": {
+      "failed": "Login failed, please try again later"
     }
   },
   "forgetPassword": {

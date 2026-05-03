@@ -154,6 +154,9 @@
     "success": {
       "title": "登录成功",
       "message": "欢迎回来"
+    },
+    "error": {
+      "failed": "登录失败，请稍后重试"
     }
   },
   "forgetPassword": {

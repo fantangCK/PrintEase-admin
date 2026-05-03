@@ -158,11 +158,17 @@ async function handleRouteGuard(
 
   // 2. 检查路由初始化是否已失败（防止死循环）
   if (routeInitFailed) {
-    // 已经失败过，直接放行到错误页面，不再重试
+    // 已登录用户但动态路由初始化失败：引导重新登录以恢复状态
+    if (userStore.isLogin) {
+      resetRouteInitState()
+      userStore.setLoginStatus(false)
+      next({ name: 'Login', query: { redirect: to.fullPath } })
+      return
+    }
+    // 未登录用户：放行到已匹配的静态页面，或跳转到 500
     if (to.matched.length > 0) {
       next()
     } else {
-      // 未匹配到路由，跳转到 500 页面
       next({ name: 'Exception500', replace: true })
     }
     return
@@ -211,8 +217,11 @@ function handleLoginStatus(
     return true
   }
 
-  // 未登录且访问需要权限的页面，跳转到登录页并携带 redirect 参数
-  userStore.logOut()
+  // 未登录：清除可能残留的路由初始化失败标记，跳转到登录页并携带 redirect 参数
+  // 注意：此处不调用 userStore.logOut()，因为：
+  // 1. isLogin 已为 false，无需重复清理状态
+  // 2. logOut() 内部的 router.push() 会与 guard 的 next() 产生双重导航
+  resetRouteInitState()
   next({
     name: 'Login',
     query: { redirect: to.fullPath }
@@ -350,7 +359,8 @@ async function handleDynamicRoutes(
       return
     }
 
-    // 标记初始化失败，防止死循环
+    // 标记初始化失败，防止死循环（仅当 backend 不可达或其他持久错误时）
+    // 用户可通过成功登录或页面刷新来恢复此状态
     routeInitFailed = true
     routeInitInProgress = false
 
@@ -369,8 +379,15 @@ async function handleDynamicRoutes(
  */
 async function fetchUserInfo(): Promise<void> {
   const userStore = useUserStore()
-  const data = await fetchGetUserInfo()
-  userStore.setUserInfo(data)
+  const adminInfo = await fetchGetUserInfo()
+  userStore.setUserInfo({
+    userId: adminInfo.id,
+    userName: adminInfo.username,
+    avatar: '',
+    email: '',
+    buttons: [],
+    roles: adminInfo.role === 0 ? ['R_SUPER'] : ['R_ADMIN']
+  })
   // 检查并清理工作台标签页（如果是不同用户登录）
   userStore.checkAndClearWorktabs()
 }

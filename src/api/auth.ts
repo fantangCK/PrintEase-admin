@@ -1,29 +1,32 @@
 import request from '@/utils/http'
 
 /**
- * 登录
- * @param params 登录参数
- * @returns 登录响应
+ * 管理员登录
+ * @param params { username, password }
+ * @returns { token, admin }
  */
-export function fetchLogin(params: Api.Auth.LoginParams) {
-  return request.post<Api.Auth.LoginResponse>({
-    url: '/api/auth/login',
+export function fetchLogin(params: { username: string; password: string }) {
+  return request.post<{
+    token: string
+    admin: {
+      id: number
+      username: string
+      realName: string
+      role: number
+    }
+  }>({
+    url: '/api/auth/admin',
     params
-    // showSuccessMessage: true // 显示成功消息
-    // showErrorMessage: false // 不显示错误消息
   })
 }
 
 /**
- * 获取用户信息
- * @returns 用户信息
+ * 获取当前管理员信息
+ * PrintEase 后端返回管理员基本信息
  */
-export function fetchGetUserInfo() {
-  return request.get<Api.Auth.UserInfo>({
-    url: '/api/user/info'
-    // 自定义请求头
-    // headers: {
-    //   'X-Custom-Header': 'your-custom-value'
-    // }
+export function fetchGetUserInfo(): Promise<Api.Auth.AdminInfo> {
+  return request.get<Api.Auth.AdminInfo>({
+    url: '/api/auth/admin/profile',
+    showErrorMessage: false
   })
 }

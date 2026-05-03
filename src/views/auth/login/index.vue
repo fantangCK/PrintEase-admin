@@ -112,6 +112,7 @@
   import { useUserStore } from '@/store/modules/user'
   import { useI18n } from 'vue-i18n'
   import { HttpError } from '@/utils/http/error'
+  import { resetRouteInitState } from '@/router/guards/beforeEach'
   import { fetchLogin } from '@/api/auth'
   import { ElNotification, type FormInstance, type FormRules } from 'element-plus'
   import { useSettingStore } from '@/store/modules/setting'
@@ -219,22 +220,31 @@
       // 登录请求
       const { username, password } = formData
 
-      const { token, refreshToken } = await fetchLogin({
-        userName: username,
+      const { token, admin } = await fetchLogin({
+        username,
         password
       })
 
-      // 验证token
       if (!token) {
         throw new Error('Login failed - no token received')
       }
 
-      // 存储 token 和登录状态
-      userStore.setToken(token, refreshToken)
+      userStore.setToken(token)
       userStore.setLoginStatus(true)
+      userStore.setUserInfo({
+        userId: admin.id,
+        userName: admin.username,
+        avatar: '',
+        email: '',
+        buttons: [],
+        roles: admin.role === 0 ? ['R_SUPER'] : ['R_ADMIN']
+      })
 
       // 登录成功处理
       showLoginSuccessNotice()
+
+      // 清除路由初始化失败标记，确保登录后能正常加载动态路由
+      resetRouteInitState()
 
       // 获取 redirect 参数，如果存在则跳转到指定页面，否则跳转到首页
       const redirect = route.query.redirect as string
@@ -242,10 +252,9 @@
     } catch (error) {
       // 处理 HttpError
       if (error instanceof HttpError) {
-        // console.log(error.code)
+        // 错误消息已由拦截器统一展示
       } else {
-        // 处理非 HttpError
-        // ElMessage.error('登录失败，请稍后重试')
+        ElMessage.error(t('login.error.failed'))
         console.error('[Login] Unexpected error:', error)
       }
     } finally {

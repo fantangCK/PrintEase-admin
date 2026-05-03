@@ -5,7 +5,7 @@
  *
  * ## 主要功能
  *
- * - 基础响应结构定义
+ * - 基础响应结构定义（匹配 PrintEase 后端 {code, message, data} 格式）
  * - 泛型支持（适配不同数据类型）
  * - 统一的响应格式约束
  *
@@ -19,12 +19,9 @@
  * @author Art Design Pro Team
  */
 
-/** 基础 API 响应结构 */
+/** 基础 API 响应结构（匹配 PrintEase 后端 TransformInterceptor 格式） */
 export interface BaseResponse<T = unknown> {
-  /** 状态码 */
   code: number
-  /** 消息 */
-  msg: string
-  /** 数据 */
+  message: string
   data: T
 }

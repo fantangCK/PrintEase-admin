@@ -9,6 +9,7 @@
  * - 请求失败自动重试（可配置）
  * - 统一的成功/错误消息提示
  * - 支持 GET/POST/PUT/DELETE 等常用方法
+ * - 适配 PrintEase 后端 {code:0, message, data} 响应格式
  *
  * @module utils/http
  * @author Art Design Pro Team
@@ -16,7 +17,7 @@
 
 import axios, { AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { useUserStore } from '@/store/modules/user'
-import { ApiStatus } from './status'
+import { BusinessCode, HttpStatus } from './status'
 import { HttpError, handleError, showError, showSuccess } from './error'
 import { $t } from '@/locales'
 import { BaseResponse } from '@/types'
@@ -65,7 +66,7 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (request: InternalAxiosRequestConfig) => {
     const { accessToken } = useUserStore()
-    if (accessToken) request.headers.set('Authorization', accessToken)
+    if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`)
 
     if (request.data && !(request.data instanceof FormData) && !request.headers['Content-Type']) {
       request.headers.set('Content-Type', 'application/json')
@@ -75,7 +76,7 @@ axiosInstance.interceptors.request.use(
     return request
   },
   (error) => {
-    showError(createHttpError($t('httpMsg.requestConfigError'), ApiStatus.error))
+    showError(createHttpError($t('httpMsg.requestConfigError'), HttpStatus.ERROR))
     return Promise.reject(error)
   }
 )
@@ -83,13 +84,13 @@ axiosInstance.interceptors.request.use(
 /** 响应拦截器 */
 axiosInstance.interceptors.response.use(
   (response: AxiosResponse<BaseResponse>) => {
-    const { code, msg } = response.data
-    if (code === ApiStatus.success) return response
-    if (code === ApiStatus.unauthorized) handleUnauthorizedError(msg)
-    throw createHttpError(msg || $t('httpMsg.requestFailed'), code)
+    const { code, message } = response.data
+    if (code === BusinessCode.SUCCESS) return response
+    throw createHttpError(message || $t('httpMsg.requestFailed'), code || HttpStatus.ERROR)
   },
   (error) => {
-    if (error.response?.status === ApiStatus.unauthorized) handleUnauthorizedError()
+    if (error.response?.status === HttpStatus.UNAUTHORIZED)
+      handleUnauthorizedError(undefined, error.config as ExtendedAxiosRequestConfig | undefined)
     return Promise.reject(handleError(error))
   }
 )
@@ -100,16 +101,14 @@ function createHttpError(message: string, code: number) {
 }
 
 /** 处理401错误（带防抖） */
-function handleUnauthorizedError(message?: string): never {
-  const error = createHttpError(message || $t('httpMsg.unauthorized'), ApiStatus.unauthorized)
+function handleUnauthorizedError(message?: string, config?: ExtendedAxiosRequestConfig): never {
+  const error = createHttpError(message || $t('httpMsg.unauthorized'), HttpStatus.UNAUTHORIZED)
 
   if (!isUnauthorizedErrorShown) {
     isUnauthorizedErrorShown = true
     logOut()
-
     unauthorizedTimer = setTimeout(resetUnauthorizedError, UNAUTHORIZED_DEBOUNCE_TIME)
-
-    showError(error, true)
+    showError(error, config?.showErrorMessage !== false)
     throw error
   }
 
@@ -133,11 +132,11 @@ function logOut() {
 /** 是否需要重试 */
 function shouldRetry(statusCode: number) {
   return [
-    ApiStatus.requestTimeout,
-    ApiStatus.internalServerError,
-    ApiStatus.badGateway,
-    ApiStatus.serviceUnavailable,
-    ApiStatus.gatewayTimeout
+    HttpStatus.REQUEST_TIMEOUT,
+    HttpStatus.INTERNAL_SERVER_ERROR,
+    HttpStatus.BAD_GATEWAY,
+    HttpStatus.SERVICE_UNAVAILABLE,
+    HttpStatus.GATEWAY_TIMEOUT
   ].includes(statusCode)
 }
 
@@ -164,7 +163,6 @@ function delay(ms: number) {
 
 /** 请求函数 */
 async function request<T = any>(config: ExtendedAxiosRequestConfig): Promise<T> {
-  // POST | PUT 参数自动填充
   if (
     ['POST', 'PUT'].includes(config.method?.toUpperCase() || '') &&
     config.params &&
@@ -177,14 +175,13 @@ async function request<T = any>(config: ExtendedAxiosRequestConfig): Promise<T> 
   try {
     const res = await axiosInstance.request<BaseResponse<T>>(config)
 
-    // 显示成功消息
-    if (config.showSuccessMessage && res.data.msg) {
-      showSuccess(res.data.msg)
+    if (config.showSuccessMessage && res.data.message) {
+      showSuccess(res.data.message)
     }
 
     return res.data.data as T
   } catch (error) {
-    if (error instanceof HttpError && error.code !== ApiStatus.unauthorized) {
+    if (error instanceof HttpError && error.code !== HttpStatus.UNAUTHORIZED) {
       const showMsg = config.showErrorMessage !== false
       showError(error, showMsg)
     }

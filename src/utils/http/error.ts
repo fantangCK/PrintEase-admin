@@ -22,16 +22,13 @@
  * @author Art Design Pro Team
  */
 import { AxiosError } from 'axios'
-import { ApiStatus } from './status'
+import { HttpStatus } from './status'
 import { $t } from '@/locales'
 
 // 错误响应接口
 export interface ErrorResponse {
-  /** 错误状态码 */
   code: number
-  /** 错误消息 */
-  msg: string
-  /** 错误附加数据 */
+  message: string
   data?: unknown
 }
 
@@ -99,15 +96,15 @@ export class HttpError extends Error {
  */
 const getErrorMessage = (status: number): string => {
   const errorMap: Record<number, string> = {
-    [ApiStatus.unauthorized]: 'httpMsg.unauthorized',
-    [ApiStatus.forbidden]: 'httpMsg.forbidden',
-    [ApiStatus.notFound]: 'httpMsg.notFound',
-    [ApiStatus.methodNotAllowed]: 'httpMsg.methodNotAllowed',
-    [ApiStatus.requestTimeout]: 'httpMsg.requestTimeout',
-    [ApiStatus.internalServerError]: 'httpMsg.internalServerError',
-    [ApiStatus.badGateway]: 'httpMsg.badGateway',
-    [ApiStatus.serviceUnavailable]: 'httpMsg.serviceUnavailable',
-    [ApiStatus.gatewayTimeout]: 'httpMsg.gatewayTimeout'
+    [HttpStatus.UNAUTHORIZED]: 'httpMsg.unauthorized',
+    [HttpStatus.FORBIDDEN]: 'httpMsg.forbidden',
+    [HttpStatus.NOT_FOUND]: 'httpMsg.notFound',
+    [HttpStatus.METHOD_NOT_ALLOWED]: 'httpMsg.methodNotAllowed',
+    [HttpStatus.REQUEST_TIMEOUT]: 'httpMsg.requestTimeout',
+    [HttpStatus.INTERNAL_SERVER_ERROR]: 'httpMsg.internalServerError',
+    [HttpStatus.BAD_GATEWAY]: 'httpMsg.badGateway',
+    [HttpStatus.SERVICE_UNAVAILABLE]: 'httpMsg.serviceUnavailable',
+    [HttpStatus.GATEWAY_TIMEOUT]: 'httpMsg.gatewayTimeout'
   }
 
   return $t(errorMap[status] || 'httpMsg.internalServerError')
@@ -122,16 +119,16 @@ export function handleError(error: AxiosError<ErrorResponse>): never {
   // 处理取消的请求
   if (error.code === 'ERR_CANCELED') {
     console.warn('Request cancelled:', error.message)
-    throw new HttpError($t('httpMsg.requestCancelled'), ApiStatus.error)
+    throw new HttpError($t('httpMsg.requestCancelled'), HttpStatus.ERROR)
   }
 
   const statusCode = error.response?.status
-  const errorMessage = error.response?.data?.msg || error.message
+  const errorMessage = error.response?.data?.message || error.message
   const requestConfig = error.config
 
   // 处理网络错误
   if (!error.response) {
-    throw new HttpError($t('httpMsg.networkError'), ApiStatus.error, {
+    throw new HttpError($t('httpMsg.networkError'), HttpStatus.ERROR, {
       url: requestConfig?.url,
       method: requestConfig?.method?.toUpperCase()
     })
@@ -141,7 +138,7 @@ export function handleError(error: AxiosError<ErrorResponse>): never {
   const message = statusCode
     ? getErrorMessage(statusCode)
     : errorMessage || $t('httpMsg.requestFailed')
-  throw new HttpError(message, statusCode || ApiStatus.error, {
+  throw new HttpError(message, statusCode || HttpStatus.ERROR, {
     data: error.response.data,
     url: requestConfig?.url,
     method: requestConfig?.method?.toUpperCase()
