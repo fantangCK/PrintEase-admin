@@ -47,7 +47,9 @@ export class RouteRegistry {
     const removeRouteFns: (() => void)[] = []
 
     menuList.forEach((route) => {
-      if (route.name && !this.router.hasRoute(route.name)) {
+      const routeName = route.name as string | undefined
+      const shouldRegister = route.path && (!routeName || !this.router.hasRoute(routeName))
+      if (shouldRegister) {
         const routeConfig = this.transformer.transform(route)
         const removeRouteFn = this.router.addRoute(routeConfig as RouteRecordRaw)
         removeRouteFns.push(removeRouteFn)

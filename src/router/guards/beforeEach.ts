@@ -337,7 +337,8 @@ async function handleDynamicRoutes(
         replace: true
       })
     } else {
-      // 有权限，正常导航
+      // 有权限，正常导航（关闭 loading 后再跳转，防止全屏锁死页面）
+      closeLoading()
       next({
         path: to.path,
         query: to.query,
