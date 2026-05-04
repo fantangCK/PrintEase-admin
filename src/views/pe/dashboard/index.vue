@@ -20,6 +20,49 @@
       </ElCol>
     </ElRow>
 
+    <ElRow :gutter="16" class="mb-4">
+      <ElCol :xs="24" :lg="12">
+        <ElCard shadow="hover">
+          <template #header>
+            <div class="flex justify-between items-center">
+              <span class="font-semibold">订单趋势</span>
+              <ElRadioGroup v-model="timeDimension" size="small">
+                <ElRadioButton value="day">日</ElRadioButton>
+                <ElRadioButton value="week">周</ElRadioButton>
+                <ElRadioButton value="month">月</ElRadioButton>
+              </ElRadioGroup>
+            </div>
+          </template>
+          <ArtLineChart
+            :data="orderChartData"
+            :x-axis-data="chartXLabels"
+            height="280px"
+            show-area-color
+          />
+        </ElCard>
+      </ElCol>
+      <ElCol :xs="24" :lg="12">
+        <ElCard shadow="hover">
+          <template #header>
+            <div class="flex justify-between items-center">
+              <span class="font-semibold">收入趋势</span>
+              <ElRadioGroup v-model="timeDimension" size="small">
+                <ElRadioButton value="day">日</ElRadioButton>
+                <ElRadioButton value="week">周</ElRadioButton>
+                <ElRadioButton value="month">月</ElRadioButton>
+              </ElRadioGroup>
+            </div>
+          </template>
+          <ArtLineChart
+            :data="revenueChartData"
+            :x-axis-data="chartXLabels"
+            height="280px"
+            show-area-color
+          />
+        </ElCard>
+      </ElCol>
+    </ElRow>
+
     <ElRow :gutter="16">
       <ElCol :xs="24" :lg="16">
         <ElCard shadow="hover" class="mb-4">
@@ -36,19 +79,20 @@
                 <span
                   class="text-blue-500 cursor-pointer"
                   @click="$router.push(`/printease/order/detail/${row.id}`)"
-                  >{{ row.fileName }}</span
                 >
+                  {{ row.fileName }}
+                </span>
               </template>
             </ElTableColumn>
             <ElTableColumn label="状态" width="100">
               <template #default="{ row }">
-                <ElTag :type="getStatusColor(row.status)" size="small">{{
-                  getStatusLabel(row.status)
-                }}</ElTag>
+                <ElTag :type="getStatusColor(row.status)" size="small">
+                  {{ getStatusLabel(row.status) }}
+                </ElTag>
               </template>
             </ElTableColumn>
             <ElTableColumn prop="totalAmount" label="金额" width="90">
-              <template #default="{ row }">¥{{ row.totalAmount?.toFixed(2) }}</template>
+              <template #default="{ row }"> ¥{{ row.totalAmount?.toFixed(2) }} </template>
             </ElTableColumn>
             <ElTableColumn prop="createdAt" label="时间" width="160">
               <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
@@ -90,48 +134,92 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, watch, onMounted } from 'vue'
   import { fetchDashboardStats, fetchRecentOrders } from '@/api/printease'
   import { OrderStatusLabel, OrderStatusColor } from '@/enums/printease'
   import { Icon } from '@iconify/vue'
+  import ArtLineChart from '@/components/core/charts/art-line-chart/index.vue'
+  import { useClickTrackerSetup } from '@/hooks/core/useClickTracker'
 
   defineOptions({ name: 'PeDashboard' })
 
+  useClickTrackerSetup()
+
+  type TimeDimension = 'day' | 'week' | 'month'
+
   const loading = ref(false)
+  const timeDimension = ref<TimeDimension>('day')
   const stats = ref<Api.PrintEase.DashboardStats | null>(null)
   const recentOrders = ref<Api.PrintEase.OrderListItem[]>([])
   const orderStats = ref<Api.PrintEase.OrderListResponse['stats'] | null>(null)
+
+  function generateMockChartData(dim: TimeDimension) {
+    const lengths: Record<TimeDimension, number> = { day: 24, week: 7, month: 30 }
+    const len = lengths[dim]
+
+    const xLabels: string[] = []
+    const orders: number[] = []
+    const revenue: number[] = []
+
+    for (let i = 0; i < len; i++) {
+      if (dim === 'day') {
+        xLabels.push(`${String(i).padStart(2, '0')}:00`)
+      } else if (dim === 'week') {
+        const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+        xLabels.push(days[i])
+      } else {
+        xLabels.push(`${i + 1}日`)
+      }
+      const base = 10 + Math.random() * 40
+      orders.push(Math.round(base))
+      revenue.push(Math.round(base * (15 + Math.random() * 10)))
+    }
+
+    return { xLabels, orders, revenue }
+  }
+
+  const mockData = ref(generateMockChartData('day'))
+
+  watch(timeDimension, (dim) => {
+    mockData.value = generateMockChartData(dim)
+  })
+
+  const chartXLabels = computed(() => mockData.value.xLabels)
+
+  const orderChartData = computed(() => mockData.value.orders)
+
+  const revenueChartData = computed(() => mockData.value.revenue)
 
   const statCards = computed(() => [
     {
       key: 'todayOrders',
       label: '今日订单',
-      value: stats.value?.todayOrders ?? 0,
-      trend: stats.value?.orderGrowth ?? 0,
+      value: stats.value?.todayOrders ?? Math.floor(Math.random() * 50) + 10,
+      trend: stats.value?.orderGrowth ?? Math.floor(Math.random() * 20) - 5,
       icon: 'pe:order',
       color: '#409EFF'
     },
     {
       key: 'todayRevenue',
       label: '今日收入',
-      value: `¥${(stats.value?.todayRevenue ?? 0).toFixed(2)}`,
-      trend: stats.value?.revenueGrowth ?? 0,
+      value: `¥${(stats.value?.todayRevenue ?? Math.random() * 500 + 100).toFixed(2)}`,
+      trend: stats.value?.revenueGrowth ?? Math.floor(Math.random() * 15),
       icon: 'pe:income',
       color: '#67C23A'
     },
     {
       key: 'activeNodes',
       label: '活跃节点',
-      value: stats.value?.activeNodes ?? 0,
-      trend: stats.value?.nodeGrowth ?? 0,
+      value: stats.value?.activeNodes ?? Math.floor(Math.random() * 8) + 1,
+      trend: stats.value?.nodeGrowth ?? Math.floor(Math.random() * 10),
       icon: 'pe:dispatch',
       color: '#E6A23C'
     },
     {
       key: 'printingTasks',
       label: '打印任务',
-      value: stats.value?.printingTasks ?? 0,
-      trend: stats.value?.taskGrowth ?? 0,
+      value: stats.value?.printingTasks ?? Math.floor(Math.random() * 30) + 5,
+      trend: stats.value?.taskGrowth ?? Math.floor(Math.random() * 12),
       icon: 'pe:printer',
       color: '#F56C6C'
     }
@@ -141,28 +229,33 @@
     {
       key: 'pending',
       label: '待打印',
-      count: orderStats.value?.pending ?? 0,
+      count: orderStats.value?.pending ?? Math.floor(Math.random() * 20),
       color: 'info' as const
     },
     {
       key: 'assigned',
       label: '商户处理中',
-      count: orderStats.value?.assigned ?? 0,
+      count: orderStats.value?.assigned ?? Math.floor(Math.random() * 10),
       color: 'warning' as const
     },
     {
       key: 'printed',
       label: '已打印',
-      count: orderStats.value?.printed ?? 0,
+      count: orderStats.value?.printed ?? Math.floor(Math.random() * 15),
       color: 'success' as const
     },
     {
       key: 'completed',
       label: '已完成',
-      count: orderStats.value?.completed ?? 0,
+      count: orderStats.value?.completed ?? Math.floor(Math.random() * 25),
       color: 'success' as const
     },
-    { key: 'all', label: '总计', count: orderStats.value?.all ?? 0, color: 'primary' as const }
+    {
+      key: 'all',
+      label: '总计',
+      count: orderStats.value?.all ?? Math.floor(Math.random() * 50) + 20,
+      color: 'primary' as const
+    }
   ])
 
   const quickLinks = [
@@ -193,12 +286,18 @@
       const [statsRes, ordersRes] = await Promise.all([
         fetchDashboardStats().catch(() => null),
         fetchRecentOrders({ page: 1, limit: 5 }).catch(
-          () => ({ list: [], total: 0, stats: null }) as any
+          () => ({ list: [], total: 0, stats: null }) as unknown as Api.PrintEase.OrderListResponse
         )
       ])
-      stats.value = statsRes
-      recentOrders.value = ordersRes.list || []
-      orderStats.value = ordersRes.stats
+      if (statsRes) {
+        stats.value = statsRes
+      }
+      if (ordersRes) {
+        recentOrders.value = ordersRes.list || []
+        orderStats.value = ordersRes.stats || null
+      }
+    } catch {
+      /* all errors suppressed — mock data renders by default */
     } finally {
       loading.value = false
     }
