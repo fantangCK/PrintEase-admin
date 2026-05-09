@@ -84,6 +84,41 @@
               <ElButton type="primary" :loading="saving" @click="saveNotice">保存公告</ElButton>
             </ElFormItem>
           </ElForm>
+
+          <ElDivider content-position="left">每日弹窗公告</ElDivider>
+          <ElAlert
+            title="每日弹窗公告会在小程序端以轻量弹层展示，并支持用户今日关闭；普通公告仍用于首页公告卡片。"
+            type="info"
+            :closable="false"
+            class="daily-popup-tip"
+          />
+          <ElForm :model="dailyPopupNoticeForm" label-width="100px" size="default">
+            <ElFormItem label="弹窗标题">
+              <ElInput v-model="dailyPopupNoticeForm.title" placeholder="请输入每日弹窗标题" />
+            </ElFormItem>
+            <ElFormItem label="弹窗内容">
+              <ElInput
+                v-model="dailyPopupNoticeForm.content"
+                type="textarea"
+                :rows="4"
+                placeholder="请输入每日弹窗内容"
+              />
+            </ElFormItem>
+            <ElFormItem label="联系微信">
+              <ElInput v-model="dailyPopupNoticeForm.wechatNumber" placeholder="微信号" />
+            </ElFormItem>
+            <ElFormItem label="弹窗图片">
+              <ElInput v-model="dailyPopupNoticeForm.imageUrl" placeholder="图片 URL" />
+            </ElFormItem>
+            <ElFormItem label="是否启用">
+              <ElSwitch v-model="dailyPopupNoticeForm.enabled" />
+            </ElFormItem>
+            <ElFormItem>
+              <ElButton type="primary" :loading="saving" @click="saveDailyPopupNotice">
+                保存每日弹窗公告
+              </ElButton>
+            </ElFormItem>
+          </ElForm>
         </ElCard>
       </ElTabPane>
     </ElTabs>
@@ -102,6 +137,7 @@
 
   const priceForm = reactive({ ...systemStore.priceConfig })
   const noticeForm = reactive({ ...systemStore.notice })
+  const dailyPopupNoticeForm = reactive({ ...systemStore.dailyPopupNotice })
 
   const featureItems = computed(() => [
     { key: 'adminEntryEnabled', value: systemStore.featureConfigs.adminEntryEnabled },
@@ -139,13 +175,32 @@
     }
   }
 
+  async function saveDailyPopupNotice() {
+    saving.value = true
+    try {
+      await systemStore.saveDailyPopupNotice(dailyPopupNoticeForm)
+      Object.assign(dailyPopupNoticeForm, systemStore.dailyPopupNotice)
+      ElMessage.success('每日弹窗公告已保存')
+    } finally {
+      saving.value = false
+    }
+  }
+
   onMounted(async () => {
     await Promise.all([
       systemStore.loadPriceConfig(),
       systemStore.loadNotice(),
+      systemStore.loadDailyPopupNotice(),
       systemStore.loadFeatureConfigs()
     ])
     Object.assign(priceForm, systemStore.priceConfig)
     Object.assign(noticeForm, systemStore.notice)
+    Object.assign(dailyPopupNoticeForm, systemStore.dailyPopupNotice)
   })
 </script>
+
+<style scoped lang="scss">
+  .daily-popup-tip {
+    margin-bottom: 18px;
+  }
+</style>

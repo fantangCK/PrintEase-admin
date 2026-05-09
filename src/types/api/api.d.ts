@@ -365,6 +365,17 @@ declare namespace Api {
       isActive: boolean
     }
 
+    interface DailyPopupNotice {
+      title: string
+      content: string
+      imageUrl: string
+      wechatNumber: string
+      enabled: boolean
+      frequency: 'daily'
+      version: string
+      updatedAt?: string | null
+    }
+
     // ---- 功能开关 ----
     interface FeatureConfigs {
       adminEntryEnabled: boolean

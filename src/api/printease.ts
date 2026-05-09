@@ -259,6 +259,20 @@ export function updateNotice(data: Partial<Api.PrintEase.Notice>) {
   })
 }
 
+export function fetchDailyPopupNotice() {
+  return request.get<Api.PrintEase.DailyPopupNotice>({
+    url: '/api/system/daily-popup-notice'
+  })
+}
+
+export function updateDailyPopupNotice(data: Partial<Api.PrintEase.DailyPopupNotice>) {
+  return request.put<Api.PrintEase.DailyPopupNotice>({
+    url: '/api/system/daily-popup-notice',
+    params: data,
+    showSuccessMessage: true
+  })
+}
+
 export function uploadNoticeImage(file: File) {
   const formData = new FormData()
   formData.append('image', file)

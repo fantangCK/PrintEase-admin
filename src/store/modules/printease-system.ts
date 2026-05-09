@@ -13,6 +13,8 @@ import {
   updatePriceConfig,
   fetchNotice,
   updateNotice,
+  fetchDailyPopupNotice,
+  updateDailyPopupNotice,
   fetchFeatureConfigs,
   updateFeatureToggle,
   fetchSystemConfig
@@ -33,6 +35,17 @@ export const usePrintEaseSystemStore = defineStore('printeaseSystemStore', () =>
     wechatNumber: '',
     imageUrl: '',
     isActive: false
+  })
+
+  const dailyPopupNotice = ref<Api.PrintEase.DailyPopupNotice>({
+    title: '',
+    content: '',
+    imageUrl: '',
+    wechatNumber: '',
+    enabled: false,
+    frequency: 'daily',
+    version: '',
+    updatedAt: null
   })
 
   const featureConfigs = ref<Api.PrintEase.FeatureConfigs>({
@@ -82,6 +95,23 @@ export const usePrintEaseSystemStore = defineStore('printeaseSystemStore', () =>
     }
   }
 
+  async function loadDailyPopupNotice() {
+    try {
+      dailyPopupNotice.value = await fetchDailyPopupNotice()
+    } catch {
+      // 每日弹窗公告可能为空，静默处理
+    }
+  }
+
+  async function saveDailyPopupNotice(data: Partial<Api.PrintEase.DailyPopupNotice>) {
+    loading.value = true
+    try {
+      dailyPopupNotice.value = await updateDailyPopupNotice(data)
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function loadFeatureConfigs() {
     try {
       featureConfigs.value = await fetchFeatureConfigs()
@@ -112,6 +142,16 @@ export const usePrintEaseSystemStore = defineStore('printeaseSystemStore', () =>
       minPrice: 1.0
     }
     notice.value = { title: '', content: '', wechatNumber: '', imageUrl: '', isActive: false }
+    dailyPopupNotice.value = {
+      title: '',
+      content: '',
+      imageUrl: '',
+      wechatNumber: '',
+      enabled: false,
+      frequency: 'daily',
+      version: '',
+      updatedAt: null
+    }
     featureConfigs.value = {
       adminEntryEnabled: false,
       merchantEntryEnabled: false,
@@ -124,6 +164,7 @@ export const usePrintEaseSystemStore = defineStore('printeaseSystemStore', () =>
   return {
     priceConfig,
     notice,
+    dailyPopupNotice,
     featureConfigs,
     systemConfig,
     loading,
@@ -131,6 +172,8 @@ export const usePrintEaseSystemStore = defineStore('printeaseSystemStore', () =>
     savePriceConfig,
     loadNotice,
     saveNotice,
+    loadDailyPopupNotice,
+    saveDailyPopupNotice,
     loadFeatureConfigs,
     toggleFeature,
     loadSystemConfig,
