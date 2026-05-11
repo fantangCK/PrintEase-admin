@@ -1,4 +1,5 @@
 import request from '@/utils/http'
+import { useUserStore } from '@/store/modules/user'
 
 /**
  * 管理员登录
@@ -25,8 +26,17 @@ export function fetchLogin(params: { username: string; password: string }) {
  * PrintEase 后端返回管理员基本信息
  */
 export function fetchGetUserInfo(): Promise<Api.Auth.AdminInfo> {
-  return request.get<Api.Auth.AdminInfo>({
-    url: '/api/auth/admin/profile',
-    showErrorMessage: false
+  const userStore = useUserStore()
+  const userInfo = userStore.getUserInfo
+
+  if (!userInfo.userId || !userInfo.userName) {
+    return Promise.reject(new Error('未找到缓存的管理员信息，请重新登录'))
+  }
+
+  return Promise.resolve({
+    id: userInfo.userId,
+    username: userInfo.userName,
+    realName: userInfo.userName,
+    role: userInfo.roles?.includes('R_SUPER') ? 0 : 1
   })
 }

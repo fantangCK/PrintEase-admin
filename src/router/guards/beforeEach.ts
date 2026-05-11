@@ -277,7 +277,10 @@ async function handleDynamicRoutes(
   try {
     // 1. 获取用户信息（非关键步骤：登录时已缓存用户信息，非401错误可安全跳过）
     try {
-      await fetchUserInfo()
+      const userStore = useUserStore()
+      if (!userStore.isLocalSuperAdmin) {
+        await fetchUserInfo()
+      }
     } catch (err) {
       if (isUnauthorizedError(err)) {
         throw err

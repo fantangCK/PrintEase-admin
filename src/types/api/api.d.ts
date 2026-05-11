@@ -176,13 +176,17 @@ declare namespace Api {
 
     // ---- 订单 ----
     interface OrderSearchParams extends Partial<Api.Common.PageParams> {
+      keyword?: string
+      orderId?: string
       status?: number
       userId?: number
       merchantId?: number
+      startDate?: string
+      endDate?: string
     }
 
     interface OrderListItem {
-      id: number
+      id: string
       totalPages: number
       copies: number
       paperSize: string
@@ -190,6 +194,7 @@ declare namespace Api {
       doubleSided: number
       printQuality: string
       totalAmount: number
+      amount?: number
       status: number
       remark: string
       mpayTradeNo: string
@@ -199,8 +204,21 @@ declare namespace Api {
       deliveryBuildingName: string
       deliveryBuildingId: number
       merchantId: number
+      userId?: number
+      user?: {
+        phone?: string | null
+        nickname?: string | null
+        avatar?: string | null
+      }
       fileCount: number
       fileName: string
+      orderFiles?: Array<{
+        file?: { originalName?: string; filename?: string; name?: string }
+        pageCount?: number
+        copies?: number
+      }>
+      payment?: { amount?: number; mpayRealPrice?: number; status?: number }
+      delivery?: { buildingName?: string; address?: string; room?: string }
     }
 
     interface OrderListResponse extends Api.Common.PageResponse<OrderListItem> {
@@ -321,6 +339,7 @@ declare namespace Api {
     interface PEUserSearchParams extends Partial<Api.Common.PageParams> {
       phone?: string
       nickname?: string
+      isActive?: boolean
     }
 
     // ---- 文件 ----

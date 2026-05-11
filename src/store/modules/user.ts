@@ -135,6 +135,8 @@ export const useUserStore = defineStore(
       }
     }
 
+    const isLocalSuperAdmin = computed(() => accessToken.value.startsWith('local-super-'))
+
     /**
      * 退出登录
      * 清空所有用户相关状态并跳转到登录页
@@ -212,6 +214,7 @@ export const useUserStore = defineStore(
       searchHistory,
       accessToken,
       refreshToken,
+      isLocalSuperAdmin,
       getUserInfo,
       getSettingState,
       getWorktabState,

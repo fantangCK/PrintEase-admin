@@ -35,9 +35,9 @@
               <ElDescriptionsItem label="打印质量">{{
                 qualityLabel(orderStore.detail.printQuality)
               }}</ElDescriptionsItem>
-              <ElDescriptionsItem label="总金额"
-                >¥{{ orderStore.detail.totalAmount?.toFixed(2) }}</ElDescriptionsItem
-              >
+              <ElDescriptionsItem label="总金额">{{
+                formatMoney(orderStore.detail)
+              }}</ElDescriptionsItem>
               <ElDescriptionsItem label="创建时间">{{
                 formatTime(orderStore.detail.createdAt)
               }}</ElDescriptionsItem>
@@ -181,6 +181,18 @@
     return new Date(date).toLocaleString('zh-CN')
   }
 
+  function formatMoney(row: Api.PrintEase.OrderDetail) {
+    const amount = Number(
+      row.totalAmount ??
+        row.amount ??
+        row.mpayRealPrice ??
+        row.payment?.amount ??
+        row.payment?.mpayRealPrice ??
+        0
+    )
+    return `¥${amount.toFixed(2)}`
+  }
+
   function downloadFile(url: string) {
     window.open(url, '_blank')
   }
@@ -207,7 +219,7 @@
   async function loadDetail() {
     loading.value = true
     try {
-      const id = Number(route.params.id)
+      const id = String(route.params.id || '')
       await orderStore.loadDetail(id)
     } finally {
       loading.value = false

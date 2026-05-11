@@ -72,29 +72,36 @@
               <ElButton size="small" @click="$router.push('/printease/order')">查看全部</ElButton>
             </div>
           </template>
-          <ElTable :data="recentOrders" v-loading="loading" stripe size="small">
-            <ElTableColumn prop="id" label="订单号" width="180" />
-            <ElTableColumn label="文件名" min-width="150">
+          <ElTable
+            :data="recentOrders"
+            v-loading="loading"
+            stripe
+            border
+            size="small"
+            table-layout="fixed"
+          >
+            <ElTableColumn prop="id" label="订单号" width="190" show-overflow-tooltip />
+            <ElTableColumn label="文件名" min-width="220" show-overflow-tooltip>
               <template #default="{ row }">
                 <span
                   class="text-blue-500 cursor-pointer"
                   @click="$router.push(`/printease/order/detail/${row.id}`)"
                 >
-                  {{ row.fileName }}
+                  {{ getFileName(row) }}
                 </span>
               </template>
             </ElTableColumn>
-            <ElTableColumn label="状态" width="100">
+            <ElTableColumn label="状态" width="100" align="center">
               <template #default="{ row }">
                 <ElTag :type="getStatusColor(row.status)" size="small">
                   {{ getStatusLabel(row.status) }}
                 </ElTag>
               </template>
             </ElTableColumn>
-            <ElTableColumn prop="totalAmount" label="金额" width="90">
-              <template #default="{ row }"> ¥{{ row.totalAmount?.toFixed(2) }} </template>
+            <ElTableColumn label="金额" width="100" align="right">
+              <template #default="{ row }">{{ formatMoney(row) }}</template>
             </ElTableColumn>
-            <ElTableColumn prop="createdAt" label="时间" width="160">
+            <ElTableColumn prop="createdAt" label="时间" width="170" align="center">
               <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
             </ElTableColumn>
           </ElTable>
@@ -135,7 +142,7 @@
 
 <script setup lang="ts">
   import { ref, computed, watch, onMounted } from 'vue'
-  import { fetchDashboardStats, fetchRecentOrders } from '@/api/printease'
+  import { fetchDashboardStats, fetchOrderStats, fetchRecentOrders } from '@/api/printease'
   import { OrderStatusLabel, OrderStatusColor } from '@/enums/printease'
   import { Icon } from '@iconify/vue'
   import ArtLineChart from '@/components/core/charts/art-line-chart/index.vue'
@@ -153,73 +160,102 @@
   const recentOrders = ref<Api.PrintEase.OrderListItem[]>([])
   const orderStats = ref<Api.PrintEase.OrderListResponse['stats'] | null>(null)
 
-  function generateMockChartData(dim: TimeDimension) {
-    const lengths: Record<TimeDimension, number> = { day: 24, week: 7, month: 30 }
-    const len = lengths[dim]
+  function getChartRange(dim: TimeDimension) {
+    const end = new Date()
+    end.setHours(23, 59, 59, 999)
 
+    const start = new Date(end)
+    if (dim === 'day') {
+      start.setHours(0, 0, 0, 0)
+    } else if (dim === 'week') {
+      start.setDate(start.getDate() - 6)
+      start.setHours(0, 0, 0, 0)
+    } else {
+      start.setDate(start.getDate() - 29)
+      start.setHours(0, 0, 0, 0)
+    }
+
+    return {
+      startDate: start.toISOString(),
+      endDate: end.toISOString()
+    }
+  }
+
+  function getChartData(stats: Awaited<ReturnType<typeof fetchOrderStats>>, dim: TimeDimension) {
+    const source = new Map(
+      (stats.dailyStats || []).map((item) => [
+        new Date(item.date).toISOString().slice(0, 10),
+        {
+          orders: Number(item.count || 0),
+          revenue: Number(item.amount || 0)
+        }
+      ])
+    )
+
+    const days = dim === 'day' ? 1 : dim === 'week' ? 7 : 30
     const xLabels: string[] = []
     const orders: number[] = []
     const revenue: number[] = []
 
-    for (let i = 0; i < len; i++) {
-      if (dim === 'day') {
-        xLabels.push(`${String(i).padStart(2, '0')}:00`)
-      } else if (dim === 'week') {
-        const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-        xLabels.push(days[i])
-      } else {
-        xLabels.push(`${i + 1}日`)
-      }
-      const base = 10 + Math.random() * 40
-      orders.push(Math.round(base))
-      revenue.push(Math.round(base * (15 + Math.random() * 10)))
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date()
+      date.setDate(date.getDate() - i)
+      const key = date.toISOString().slice(0, 10)
+      const data = source.get(key)
+      xLabels.push(dim === 'month' ? `${date.getMonth() + 1}/${date.getDate()}` : key.slice(5))
+      orders.push(data?.orders || 0)
+      revenue.push(data?.revenue || 0)
     }
 
     return { xLabels, orders, revenue }
   }
 
-  const mockData = ref(generateMockChartData('day'))
-
-  watch(timeDimension, (dim) => {
-    mockData.value = generateMockChartData(dim)
+  const chartData = ref({
+    xLabels: [] as string[],
+    orders: [] as number[],
+    revenue: [] as number[]
   })
 
-  const chartXLabels = computed(() => mockData.value.xLabels)
+  watch(timeDimension, () => {
+    loadChartData()
+  })
 
-  const orderChartData = computed(() => mockData.value.orders)
+  const chartXLabels = computed(() => chartData.value.xLabels)
 
-  const revenueChartData = computed(() => mockData.value.revenue)
+  const orderChartData = computed(() => chartData.value.orders)
+
+  const revenueChartData = computed(() => chartData.value.revenue)
 
   const statCards = computed(() => [
     {
       key: 'todayOrders',
       label: '今日订单',
-      value: stats.value?.todayOrders ?? Math.floor(Math.random() * 50) + 10,
-      trend: stats.value?.orderGrowth ?? Math.floor(Math.random() * 20) - 5,
+      value: stats.value?.todayOrders ?? 0,
+      trend: stats.value?.orderGrowth ?? 0,
       icon: 'pe:order',
       color: '#409EFF'
     },
     {
       key: 'todayRevenue',
       label: '今日收入',
-      value: `¥${(stats.value?.todayRevenue ?? Math.random() * 500 + 100).toFixed(2)}`,
-      trend: stats.value?.revenueGrowth ?? Math.floor(Math.random() * 15),
+      value: `¥${(stats.value?.todayRevenue ?? 0).toFixed(2)}`,
+      trend: stats.value?.revenueGrowth ?? 0,
       icon: 'pe:income',
       color: '#67C23A'
     },
     {
       key: 'activeNodes',
       label: '活跃节点',
-      value: stats.value?.activeNodes ?? Math.floor(Math.random() * 8) + 1,
-      trend: stats.value?.nodeGrowth ?? Math.floor(Math.random() * 10),
+      value: stats.value?.activeNodes ?? 0,
+      trend: stats.value?.nodeGrowth ?? 0,
       icon: 'pe:dispatch',
       color: '#E6A23C'
     },
     {
       key: 'printingTasks',
       label: '打印任务',
-      value: stats.value?.printingTasks ?? Math.floor(Math.random() * 30) + 5,
-      trend: stats.value?.taskGrowth ?? Math.floor(Math.random() * 12),
+      value: stats.value?.printingTasks ?? 0,
+      trend: stats.value?.taskGrowth ?? 0,
       icon: 'pe:printer',
       color: '#F56C6C'
     }
@@ -229,31 +265,31 @@
     {
       key: 'pending',
       label: '待打印',
-      count: orderStats.value?.pending ?? Math.floor(Math.random() * 20),
+      count: orderStats.value?.pending ?? 0,
       color: 'info' as const
     },
     {
       key: 'assigned',
       label: '商户处理中',
-      count: orderStats.value?.assigned ?? Math.floor(Math.random() * 10),
+      count: orderStats.value?.assigned ?? 0,
       color: 'warning' as const
     },
     {
       key: 'printed',
       label: '已打印',
-      count: orderStats.value?.printed ?? Math.floor(Math.random() * 15),
+      count: orderStats.value?.printed ?? 0,
       color: 'success' as const
     },
     {
       key: 'completed',
       label: '已完成',
-      count: orderStats.value?.completed ?? Math.floor(Math.random() * 25),
+      count: orderStats.value?.completed ?? 0,
       color: 'success' as const
     },
     {
       key: 'all',
       label: '总计',
-      count: orderStats.value?.all ?? Math.floor(Math.random() * 50) + 20,
+      count: orderStats.value?.all ?? 0,
       color: 'primary' as const
     }
   ])
@@ -275,9 +311,41 @@
     return OrderStatusLabel[status] || '未知'
   }
 
+  function getFileName(row: Api.PrintEase.OrderListItem) {
+    return (
+      row.fileName ||
+      row.orderFiles?.[0]?.file?.originalName ||
+      row.orderFiles?.[0]?.file?.filename ||
+      row.orderFiles?.[0]?.file?.name ||
+      '—'
+    )
+  }
+
+  function getMoneyValue(row: Api.PrintEase.OrderListItem) {
+    return Number(
+      row.totalAmount ??
+        row.amount ??
+        row.mpayRealPrice ??
+        row.payment?.amount ??
+        row.payment?.mpayRealPrice ??
+        0
+    )
+  }
+
+  function formatMoney(row: Api.PrintEase.OrderListItem) {
+    return `¥${getMoneyValue(row).toFixed(2)}`
+  }
+
   function formatTime(date: string) {
     if (!date) return ''
     return new Date(date).toLocaleString('zh-CN')
+  }
+
+  async function loadChartData() {
+    const chartStats = await fetchOrderStats(getChartRange(timeDimension.value)).catch(() => null)
+    chartData.value = chartStats
+      ? getChartData(chartStats, timeDimension.value)
+      : { xLabels: [], orders: [], revenue: [] }
   }
 
   async function loadData() {
@@ -287,7 +355,8 @@
         fetchDashboardStats().catch(() => null),
         fetchRecentOrders({ page: 1, limit: 5 }).catch(
           () => ({ list: [], total: 0, stats: null }) as unknown as Api.PrintEase.OrderListResponse
-        )
+        ),
+        loadChartData()
       ])
       if (statsRes) {
         stats.value = statsRes
@@ -297,7 +366,9 @@
         orderStats.value = ordersRes.stats || null
       }
     } catch {
-      /* all errors suppressed — mock data renders by default */
+      stats.value = null
+      recentOrders.value = []
+      orderStats.value = null
     } finally {
       loading.value = false
     }

@@ -109,6 +109,7 @@
 
 <script setup lang="ts">
   import AppConfig from '@/config'
+  import { HOME_PAGE_PATH } from '@/router'
   import { useUserStore } from '@/store/modules/user'
   import { useI18n } from 'vue-i18n'
   import { HttpError } from '@/utils/http/error'
@@ -129,7 +130,7 @@
     formKey.value++
   })
 
-  type AccountKey = 'super' | 'admin' | 'user'
+  type AccountKey = 'super' | 'admin'
 
   export interface Account {
     key: AccountKey
@@ -137,6 +138,7 @@
     userName: string
     password: string
     roles: string[]
+    mode: 'local' | 'backend'
   }
 
   const accounts = computed<Account[]>(() => [
@@ -145,21 +147,16 @@
       label: t('login.roles.super'),
       userName: 'Super',
       password: '123456',
-      roles: ['R_SUPER']
+      roles: ['R_SUPER'],
+      mode: 'local'
     },
     {
       key: 'admin',
       label: t('login.roles.admin'),
-      userName: 'Admin',
-      password: '123456',
-      roles: ['R_ADMIN']
-    },
-    {
-      key: 'user',
-      label: t('login.roles.user'),
-      userName: 'User',
-      password: '123456',
-      roles: ['R_USER']
+      userName: 'admin',
+      password: 'admin123',
+      roles: ['R_ADMIN'],
+      mode: 'backend'
     }
   ])
 
@@ -217,43 +214,56 @@
 
       loading.value = true
 
-      // 登录请求
-      const { username, password } = formData
+      const { username, password, account } = formData
+      const selectedAccount = accounts.value.find((item) => item.key === account)
 
-      const { token, admin } = await fetchLogin({
-        username,
-        password
-      })
+      if (selectedAccount?.mode === 'local') {
+        if (username !== selectedAccount.userName || password !== selectedAccount.password) {
+          throw new Error('Local super admin authentication failed')
+        }
 
-      if (!token) {
-        throw new Error('Login failed - no token received')
+        userStore.setToken(`local-super-${Date.now()}`)
+        userStore.setLoginStatus(true)
+        userStore.setUserInfo({
+          userId: 0,
+          userName: selectedAccount.userName,
+          avatar: '',
+          email: '',
+          buttons: [],
+          roles: selectedAccount.roles
+        })
+      } else {
+        const { token, admin } = await fetchLogin({
+          username,
+          password
+        })
+
+        if (!token) {
+          throw new Error('Login failed - no token received')
+        }
+
+        userStore.setToken(token)
+        userStore.setLoginStatus(true)
+        userStore.setUserInfo({
+          userId: admin.id,
+          userName: admin.username,
+          avatar: '',
+          email: '',
+          buttons: [],
+          roles: admin.role === 0 ? ['R_SUPER'] : ['R_ADMIN']
+        })
       }
 
-      // 保存登录信息
-      userStore.setToken(token)
-      userStore.setLoginStatus(true)
-      userStore.setUserInfo({
-        userId: admin.id,
-        userName: admin.username,
-        avatar: '',
-        email: '',
-        buttons: [],
-        roles: admin.role === 0 ? ['R_SUPER'] : ['R_ADMIN']
-      })
-
-      // 登录成功处理
       showLoginSuccessNotice()
 
       // 清除路由初始化失败标记，确保登录后能正常加载动态路由
       resetRouteInitState()
 
-      // 获取 redirect 参数，如果存在则跳转到指定页面，否则跳转到首页
       const redirect = route.query.redirect as string
-      const targetPath = redirect || '/'
+      const targetPath = redirect && redirect !== '/' ? redirect : HOME_PAGE_PATH
 
-      // 使用 nextTick 确保状态更新后再跳转
       await nextTick()
-      await router.push(targetPath)
+      await router.replace(targetPath)
     } catch (error) {
       // 处理 HttpError
       if (error instanceof HttpError) {

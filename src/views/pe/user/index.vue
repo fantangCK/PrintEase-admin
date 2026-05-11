@@ -3,14 +3,17 @@
   <div class="pe-user art-full-height">
     <ElCard class="mb-4">
       <div class="flex justify-between items-center">
-        <ElInput
-          v-model="searchText"
-          placeholder="搜索手机号 / 昵称"
-          clearable
-          style="width: 240px"
-          @keyup.enter="handleSearch"
-          @clear="handleSearch"
-        />
+        <div class="flex gap-2">
+          <ElInput
+            v-model="searchText"
+            placeholder="搜索手机号 / 昵称"
+            clearable
+            style="width: 240px"
+            @keyup.enter="handleSearch"
+            @clear="handleSearch"
+          />
+          <ElButton type="primary" @click="handleSearch">查询</ElButton>
+        </div>
         <ElButton @click="handleRefresh"><Icon icon="ep:refresh" /> 刷新</ElButton>
       </div>
     </ElCard>
@@ -89,8 +92,18 @@
   async function loadData() {
     loading.value = true
     try {
-      const params: any = { page: currentPage.value, limit: pageSize.value }
-      if (searchText.value) params.phone = searchText.value
+      const params: Api.PrintEase.PEUserSearchParams = {
+        page: currentPage.value,
+        limit: pageSize.value
+      }
+      const keyword = searchText.value.trim()
+      if (keyword) {
+        if (/^\d+$/.test(keyword)) {
+          params.phone = keyword
+        } else {
+          params.nickname = keyword
+        }
+      }
       const res = await fetchUserList(params)
       userList.value = res.list
       total.value = res.total

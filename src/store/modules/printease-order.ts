@@ -10,7 +10,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import {
   fetchOrderList,
-  fetchOrderDetail,
+  fetchAdminOrderDetail,
   updateOrderStatus,
   batchUpdateOrders,
   deleteOrder,
@@ -26,18 +26,29 @@ export const usePrintEaseOrderStore = defineStore('printeaseOrderStore', () => {
   const currentPage = ref(1)
   const pageSize = ref(10)
   const statusFilter = ref<number | undefined>(undefined)
+  const searchFilters = ref<Api.PrintEase.OrderSearchParams>({})
   const stats = ref<Api.PrintEase.OrderListResponse['stats'] | null>(null)
 
-  async function loadList(page?: number, limit?: number, status?: number) {
+  async function loadList(
+    page?: number,
+    limit?: number,
+    filters?: Api.PrintEase.OrderSearchParams | number
+  ) {
     loading.value = true
     currentPage.value = page ?? currentPage.value
     pageSize.value = limit ?? pageSize.value
-    statusFilter.value = status
+    if (typeof filters === 'number' || filters === undefined) {
+      statusFilter.value = filters
+      searchFilters.value = filters === undefined ? {} : { status: filters }
+    } else {
+      statusFilter.value = filters.status
+      searchFilters.value = { ...filters }
+    }
     try {
       const res = await fetchOrderList({
+        ...searchFilters.value,
         page: currentPage.value,
-        limit: pageSize.value,
-        status
+        limit: pageSize.value
       })
       list.value = res.list
       total.value = res.total
@@ -47,33 +58,39 @@ export const usePrintEaseOrderStore = defineStore('printeaseOrderStore', () => {
     }
   }
 
-  async function loadDetail(id: number) {
+  async function loadDetail(id: string) {
     loading.value = true
     try {
-      detail.value = await fetchOrderDetail(id)
+      detail.value = await fetchAdminOrderDetail(id)
     } finally {
       loading.value = false
     }
   }
 
-  async function setStatus(id: number, status: OrderStatus) {
+  async function setStatus(id: string, status: OrderStatus) {
     await updateOrderStatus(id, status)
-    await loadList()
+    await loadList(currentPage.value, pageSize.value, searchFilters.value)
   }
 
   async function batchSetStatus(orderIds: string[], status: OrderStatus) {
     await batchUpdateOrders({ orderIds, data: { status } })
-    await loadList()
+    await loadList(currentPage.value, pageSize.value, searchFilters.value)
   }
 
-  async function remove(id: number) {
+  async function remove(id: string) {
     await deleteOrder(id)
-    await loadList()
+    await loadList(currentPage.value, pageSize.value, searchFilters.value)
   }
 
   async function loadStats(startDate?: string, endDate?: string) {
     const res = await fetchOrderStats({ startDate, endDate })
-    stats.value = res
+    stats.value = {
+      all: Number(res.totalOrders || 0),
+      pending: Number(res.statusStats?.['1'] || res.statusStats?.['2'] || 0),
+      assigned: Number(res.statusStats?.['3'] || 0),
+      printed: Number(res.statusStats?.['4'] || 0),
+      completed: Number(res.statusStats?.['5'] || 0)
+    }
     return res
   }
 
@@ -83,6 +100,7 @@ export const usePrintEaseOrderStore = defineStore('printeaseOrderStore', () => {
     total.value = 0
     currentPage.value = 1
     statusFilter.value = undefined
+    searchFilters.value = {}
     stats.value = null
   }
 
@@ -94,6 +112,7 @@ export const usePrintEaseOrderStore = defineStore('printeaseOrderStore', () => {
     currentPage,
     pageSize,
     statusFilter,
+    searchFilters,
     stats,
     loadList,
     loadDetail,

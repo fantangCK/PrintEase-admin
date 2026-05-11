@@ -49,7 +49,7 @@ export const printeaseRoutes = [
             meta: {
               icon: 'pe:order-detail',
               title: '订单详情',
-              hidden: true,
+              isHide: true,
               order: 22
             }
           }

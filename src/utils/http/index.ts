@@ -50,7 +50,7 @@ const axiosInstance = axios.create({
   transformResponse: [
     (data, headers) => {
       const contentType = headers['content-type']
-      if (contentType?.includes('application/json')) {
+      if (typeof contentType === 'string' && contentType.includes('application/json')) {
         try {
           return JSON.parse(data)
         } catch {
@@ -103,6 +103,11 @@ function createHttpError(message: string, code: number) {
 /** 处理401错误（带防抖） */
 function handleUnauthorizedError(message?: string, config?: ExtendedAxiosRequestConfig): never {
   const error = createHttpError(message || $t('httpMsg.unauthorized'), HttpStatus.UNAUTHORIZED)
+
+  const userStore = useUserStore()
+  if (userStore.isLocalSuperAdmin) {
+    throw error
+  }
 
   if (!isUnauthorizedErrorShown) {
     isUnauthorizedErrorShown = true

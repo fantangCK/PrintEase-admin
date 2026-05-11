@@ -114,8 +114,8 @@
     taskLoading.value = true
     try {
       const res = await dispatchApi.fetchTasks({ page: taskPage.value, limit: 10 })
-      taskList.value = res.data?.list || res.data?.records || []
-      taskTotal.value = res.data?.total || 0
+      taskList.value = res.list || []
+      taskTotal.value = res.total || 0
     } catch (err: any) {
       ElMessage.error(err?.response?.data?.message || '调度服务异常')
     } finally {

@@ -1,137 +1,329 @@
-/**
- * PrintEase 业务 API 模块
- *
- * 对接 PrintEase 后端全部接口，按业务模块组织
- *
- * @module api/printease
- */
-
 import request from '@/utils/http'
 import axios from 'axios'
+import * as XLSX from 'xlsx'
 
-// ==================== 仪表盘 ====================
+interface BackendResponse<T = any> {
+  code: number
+  message: string
+  data: T
+}
 
-export function fetchDashboardStats() {
-  return request.get<Api.PrintEase.DashboardStats>({
+type OrderStatsResponse = {
+  totalOrders: number
+  statusStats: Record<string, number>
+  totalRevenue: number
+  dailyStats: Array<{ date: string; count: number; amount: number }>
+}
+
+const ADMIN_ORDER_LIST_URL = '/api/orders/admin/list'
+const { VITE_API_URL } = import.meta.env
+
+function createPageResponse<T>(list: T[], page = 1, limit = 10): Api.Common.PageResponse<T> {
+  const start = (page - 1) * limit
+  const safeLimit = limit || list.length || 10
+  const pageList = list.slice(start, start + safeLimit)
+
+  return {
+    list: pageList,
+    total: list.length,
+    page,
+    limit: safeLimit,
+    totalPages: Math.ceil(list.length / safeLimit) || 1
+  }
+}
+
+function filterByKeyword<T extends Record<string, any>>(list: T[], filters?: Record<string, any>) {
+  if (!filters) return list
+
+  return list.filter((item) => {
+    if (filters.name && !String(item.name || '').includes(String(filters.name))) return false
+    if (filters.phone && !String(item.phone || '').includes(String(filters.phone))) return false
+    if (
+      filters.status !== undefined &&
+      filters.status !== '' &&
+      item.status !== Number(filters.status)
+    ) {
+      return false
+    }
+    return true
+  })
+}
+
+function getDayRange(offset = 0) {
+  const start = new Date()
+  start.setDate(start.getDate() + offset)
+  start.setHours(0, 0, 0, 0)
+
+  const end = new Date(start)
+  end.setHours(23, 59, 59, 999)
+
+  return {
+    startDate: start.toISOString(),
+    endDate: end.toISOString()
+  }
+}
+
+function calcGrowth(current: number, previous: number) {
+  if (!previous) return current > 0 ? 100 : 0
+  return Math.round(((current - previous) / previous) * 100)
+}
+
+async function fetchOrderStatsByRange(params?: Api.PrintEase.OrderStatsParams) {
+  const res = await request.get<OrderStatsResponse>({
     url: '/api/orders/admin/orders/stats',
+    params,
     showErrorMessage: false
   })
+  return {
+    totalOrders: Number(res.totalOrders || 0),
+    statusStats: res.statusStats || {},
+    totalRevenue: Number(res.totalRevenue || 0),
+    dailyStats: (res.dailyStats || []).map((item) => ({
+      date: item.date,
+      count: Number(item.count || 0),
+      amount: Number(item.amount || 0)
+    }))
+  }
+}
+
+function getOrderAmount(item: Partial<Api.PrintEase.OrderListItem>) {
+  return Number(
+    item.totalAmount ??
+      item.amount ??
+      item.mpayRealPrice ??
+      item.payment?.amount ??
+      item.payment?.mpayRealPrice ??
+      0
+  )
+}
+
+function normalizeOrderItem(item: Api.PrintEase.OrderListItem): Api.PrintEase.OrderListItem {
+  return {
+    ...item,
+    totalAmount: getOrderAmount(item),
+    fileName:
+      item.fileName ||
+      item.orderFiles?.[0]?.file?.originalName ||
+      item.orderFiles?.[0]?.file?.filename ||
+      item.orderFiles?.[0]?.file?.name ||
+      '',
+    totalPages:
+      item.totalPages ||
+      item.orderFiles?.reduce((sum, file) => sum + Number(file.pageCount || 0), 0) ||
+      0,
+    copies:
+      item.copies || item.orderFiles?.reduce((sum, file) => sum + Number(file.copies || 0), 0) || 0,
+    deliveryBuildingName:
+      item.deliveryBuildingName || item.delivery?.buildingName || item.delivery?.address || ''
+  }
+}
+
+function normalizeOrderPage(res: Api.PrintEase.OrderListResponse): Api.PrintEase.OrderListResponse {
+  return {
+    ...res,
+    list: (res.list || []).map(normalizeOrderItem),
+    stats: res.stats || buildOrderPageStats(res.list || [])
+  }
+}
+
+function buildOrderPageStats(list: Api.PrintEase.OrderListItem[]) {
+  return list.reduce(
+    (stats, item) => {
+      const status = Number(item.status)
+      stats.all += 1
+      if (status === 1 && !item.merchantId) stats.pending += 1
+      if (status === 1 && item.merchantId) stats.assigned += 1
+      if (status === 3) stats.printed += 1
+      if (status === 4) stats.completed += 1
+      return stats
+    },
+    { all: 0, pending: 0, assigned: 0, printed: 0, completed: 0 }
+  )
+}
+
+function normalizeIncomeOverview(stats: OrderStatsResponse): Api.PrintEase.IncomeOverview {
+  const totalRevenue = Number(stats.totalRevenue || 0)
+  const todayRevenue = Number(
+    stats.dailyStats?.find((item) => item.date === new Date().toISOString().slice(0, 10))?.amount ||
+      0
+  )
+
+  return {
+    totalRevenue,
+    todayRevenue,
+    weekRevenue: totalRevenue,
+    monthRevenue: totalRevenue,
+    orderCount: Number(stats.totalOrders || 0),
+    merchantCount: 0,
+    userCount: 0,
+    growthRate: 0
+  }
+}
+
+function exportJsonToBlob(rows: Record<string, any>[], sheetName: string) {
+  const worksheet = XLSX.utils.json_to_sheet(rows)
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName)
+  const arrayBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+  return new Blob([arrayBuffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  })
+}
+
+async function getRawConfig<T>(url: string) {
+  const res = await axios.get<T>(url, { baseURL: VITE_API_URL })
+  return res.data
+}
+
+async function requestExportRows(params?: Record<string, any>) {
+  const res = await request.get<Record<string, any>[]>({
+    url: '/api/orders/admin/orders/export',
+    params
+  })
+  return Array.isArray(res) ? res : []
+}
+
+export async function fetchDashboardStats() {
+  const [todayStats, yesterdayStats, totalStats, merchants] = await Promise.all([
+    fetchOrderStatsByRange(getDayRange()),
+    fetchOrderStatsByRange(getDayRange(-1)),
+    fetchOrderStatsByRange(),
+    request
+      .get<Api.PrintEase.MerchantListItem[]>({
+        url: '/api/admin/merchants',
+        showErrorMessage: false
+      })
+      .catch(() => [])
+  ])
+
+  const activeNodes = merchants.filter((merchant) => Number(merchant.status) === 1).length
+  const printingTasks = Number(totalStats.statusStats?.['2'] || 0)
+
+  return {
+    todayOrders: Number(todayStats.totalOrders || 0),
+    todayRevenue: Number(todayStats.totalRevenue || 0),
+    activeNodes,
+    printingTasks,
+    orderGrowth: calcGrowth(
+      Number(todayStats.totalOrders || 0),
+      Number(yesterdayStats.totalOrders || 0)
+    ),
+    revenueGrowth: calcGrowth(
+      Number(todayStats.totalRevenue || 0),
+      Number(yesterdayStats.totalRevenue || 0)
+    ),
+    nodeGrowth: 0,
+    taskGrowth: 0
+  }
 }
 
 export function fetchRecentOrders(params?: Api.PrintEase.OrderSearchParams) {
-  return request.get<Api.PrintEase.OrderListResponse>({
-    url: '/api/orders/admin/list',
-    params: { ...params, limit: 5 },
-    showErrorMessage: false
-  })
+  return fetchOrderList({ ...params, page: params?.page || 1, limit: 5 })
 }
 
-export function fetchIncomeTrend() {
-  return request.get<Api.PrintEase.IncomeTrendItem[]>({
-    url: '/api/orders/admin/orders/stats'
-  })
+export async function fetchIncomeTrend() {
+  const stats = await fetchOrderStatsByRange()
+  return (stats.dailyStats || []).map((item) => ({
+    date: item.date,
+    revenue: Number(item.amount || 0),
+    orderCount: Number(item.count || 0)
+  }))
 }
 
-// ==================== 订单管理 ====================
+export async function fetchOrderList(params: Api.PrintEase.OrderSearchParams) {
+  const queryParams = { ...params }
+  if (!queryParams.orderId && queryParams.keyword) queryParams.orderId = queryParams.keyword
 
-export function fetchOrderList(params: Api.PrintEase.OrderSearchParams) {
-  return request.get<Api.PrintEase.OrderListResponse>({
-    url: '/api/orders/admin/list',
-    params
+  const res = await request.get<Api.PrintEase.OrderListResponse>({
+    url: ADMIN_ORDER_LIST_URL,
+    params: queryParams
   })
+
+  return normalizeOrderPage(res)
 }
 
-export function fetchOrderDetail(id: number) {
+export function fetchOrderDetail(id: string) {
   return request.get<Api.PrintEase.OrderDetail>({
     url: `/api/orders/${id}`
   })
 }
 
-export function fetchAdminOrderDetail(id: number) {
-  return request.get<Api.PrintEase.OrderDetail>({
-    url: `/api/orders/admin/orders/${id}`
+export function fetchAdminOrderDetail(id: string) {
+  return fetchOrderDetail(id)
+}
+
+export function updateOrderStatus(id: string, status: number) {
+  return request.put<Api.PrintEase.OrderDetail>({
+    url: `/api/orders/${id}/set-status`,
+    data: { status }
   })
 }
 
-export function updateOrderStatus(id: number, status: number) {
-  return request.put<void>({
-    url: `/api/orders/admin/orders/${id}/status`,
-    params: { status }
-  })
-}
-
-export function setOrderStatus(id: number, status: number) {
+export function setOrderStatus(id: string, status: number) {
   return request.put<void>({
     url: `/api/orders/${id}/set-status`,
-    params: { status }
+    data: { status }
   })
 }
 
 export function batchUpdateOrders(params: Api.PrintEase.OrderBatchParams) {
-  return request.post<void>({
+  return request.post<Api.PrintEase.OrderDetail[]>({
     url: '/api/orders/admin/orders/batch',
     params
   })
 }
 
-export function deleteOrder(id: number) {
+export function deleteOrder(id: string) {
   return request.del<void>({
     url: `/api/orders/${id}`
   })
 }
 
 export function fetchOrderStats(params?: Api.PrintEase.OrderStatsParams) {
-  return request.get<any>({
-    url: '/api/orders/admin/orders/stats',
-    params
-  })
+  return fetchOrderStatsByRange(params)
 }
 
-export function exportOrders(params?: Record<string, any>) {
-  return request.get<Blob>({
-    url: '/api/orders/admin/orders/export',
-    params,
-    responseType: 'blob'
-  })
+export async function exportOrders(params?: Record<string, any>) {
+  const rows = await requestExportRows(params)
+  return exportJsonToBlob(rows, '订单数据')
 }
 
-export function cancelOrder(id: number) {
+export function cancelOrder(id: string) {
   return request.put<void>({
     url: `/api/orders/${id}/cancel`
   })
 }
 
-export function forceCompleteOrder(id: number) {
+export function forceCompleteOrder(id: string) {
   return request.put<void>({
     url: `/api/orders/${id}/force-complete`
   })
 }
 
-export function reassignOrder(id: number) {
+export function reassignOrder(id: string) {
   return request.put<void>({
     url: `/api/orders/${id}/reassign`
   })
 }
 
-export function startPrintingOrder(id: number) {
+export function startPrintingOrder(id: string) {
   return request.put<void>({
     url: `/api/orders/${id}/start-printing`
   })
 }
 
-export function refreshOrderStatus(id: number) {
+export function refreshOrderStatus(id: string) {
   return request.put<void>({
     url: `/api/orders/${id}/refresh`
   })
 }
 
-// ==================== 商户管理 ====================
-
-export function fetchMerchantList(params?: Api.PrintEase.MerchantSearchParams) {
-  return request.get<Api.PrintEase.MerchantListResponse>({
-    url: '/api/admin/merchants',
-    params
+export async function fetchMerchantList(params?: Api.PrintEase.MerchantSearchParams) {
+  const merchants = await request.get<Api.PrintEase.MerchantListItem[]>({
+    url: '/api/admin/merchants'
   })
+  const filtered = filterByKeyword(merchants, params)
+  return createPageResponse(filtered, params?.page || 1, params?.limit || 10)
 }
 
 export function fetchMerchantDetail(id: number) {
@@ -166,8 +358,6 @@ export function regenerateMerchantApiKey(id: number) {
   })
 }
 
-// ==================== 用户管理 ====================
-
 export function fetchUserList(params?: Api.PrintEase.PEUserSearchParams) {
   return request.get<Api.PrintEase.PEUserListResponse>({
     url: '/api/user/admin/users',
@@ -182,20 +372,18 @@ export function fetchUserDetail(id: number) {
 }
 
 export function updateUser(id: number, data: Record<string, any>) {
-  return request.put<void>({
+  return request.put<Api.PrintEase.PEUserListItem>({
     url: `/api/user/admin/users/${id}`,
-    params: data
+    data
   })
 }
 
 export function updateUserStatus(id: number, isActive: boolean) {
-  return request.put<void>({
+  return request.put<Api.PrintEase.PEUserListItem>({
     url: `/api/user/admin/users/${id}/status`,
-    params: { isActive }
+    data: { isActive }
   })
 }
-
-// ==================== 文件管理 ====================
 
 export function fetchFileList(params?: Api.Common.PageParams) {
   return request.get<Api.PrintEase.FileListResponse>({
@@ -211,15 +399,14 @@ export function fetchFileDetail(id: number) {
 }
 
 export function deleteFile(id: number) {
-  return request.del<void>({
-    url: `/api/files/${id}`
-  })
+  return batchDeleteFiles([id])
 }
 
 export function batchDeleteFiles(fileIds: number[]) {
-  return request.del<void>({
+  return request.request<void>({
     url: '/api/files/admin/files/batch',
-    params: { fileIds }
+    method: 'DELETE',
+    data: { fileIds }
   })
 }
 
@@ -229,8 +416,6 @@ export function fetchFileStats() {
   })
 }
 
-// ==================== 系统配置 ====================
-
 export function fetchPriceConfig() {
   return request.get<Api.PrintEase.PriceConfig>({
     url: '/api/system/price'
@@ -238,7 +423,7 @@ export function fetchPriceConfig() {
 }
 
 export function updatePriceConfig(data: Partial<Api.PrintEase.PriceConfig>) {
-  return request.put<void>({
+  return request.put<Api.PrintEase.PriceConfig>({
     url: '/api/system/price',
     params: data,
     showSuccessMessage: true
@@ -252,7 +437,7 @@ export function fetchNotice() {
 }
 
 export function updateNotice(data: Partial<Api.PrintEase.Notice>) {
-  return request.put<void>({
+  return request.put<Api.PrintEase.Notice>({
     url: '/api/system/notice',
     params: data,
     showSuccessMessage: true
@@ -276,7 +461,7 @@ export function updateDailyPopupNotice(data: Partial<Api.PrintEase.DailyPopupNot
 export function uploadNoticeImage(file: File) {
   const formData = new FormData()
   formData.append('image', file)
-  return request.post<{ code: number; data: string }>({
+  return request.post<string>({
     url: '/api/system/upload-notice-image',
     data: formData,
     headers: { 'Content-Type': 'multipart/form-data' }
@@ -295,8 +480,6 @@ export function reloadConfig() {
   })
 }
 
-// ==================== 功能开关 ====================
-
 export function fetchFeatureConfigs() {
   return request.get<Api.PrintEase.FeatureConfigs>({
     url: '/api/system/feature-configs'
@@ -310,19 +493,17 @@ export function updateFeatureToggle(key: string, enabled: boolean) {
     merchantEntryEnabled: '/api/system/merchant-entry-enabled',
     adminEntryEnabled: '/api/system/admin-entry-enabled'
   }
-  return request.put<void>({
+  return request.put<{ enabled: boolean }>({
     url: urlMap[key] || `/api/system/${key}`,
     params: { enabled }
   })
 }
 
-// ==================== 管理员管理 ====================
-
-export function fetchAdminList(params?: Api.PrintEase.AdminSearchParams) {
-  return request.get<Api.Common.PageResponse<Api.PrintEase.AdminListItem>>({
-    url: '/api/admin/admins',
-    params
+export async function fetchAdminList(params?: Api.PrintEase.AdminSearchParams) {
+  const admins = await request.get<Api.PrintEase.AdminListItem[]>({
+    url: '/api/admin/admins'
   })
+  return createPageResponse(admins, params?.page || 1, params?.limit || 10)
 }
 
 export function fetchAdminDetail(id: number) {
@@ -339,7 +520,7 @@ export function createAdmin(data: Api.PrintEase.AdminCreateParams) {
 }
 
 export function updateAdmin(id: number, data: Partial<Api.PrintEase.AdminCreateParams>) {
-  return request.put<void>({
+  return request.put<Api.PrintEase.AdminListItem>({
     url: `/api/admin/admins/${id}`,
     params: data
   })
@@ -358,54 +539,59 @@ export function resetAdminPassword(id: number, password: string) {
   })
 }
 
-// ==================== 配送配置 ====================
-
 export function fetchDeliveryBuildings() {
-  return request.get<Api.PrintEase.DeliveryBuilding[]>({
-    url: '/api/config/delivery-buildings'
-  })
+  return getRawConfig<Api.PrintEase.DeliveryBuilding[]>('/api/config/delivery-buildings')
 }
 
 export function fetchTimeSlots() {
-  return request.get<Api.PrintEase.TimeSlot[]>({
-    url: '/api/config/time-slots'
-  })
+  return getRawConfig<Api.PrintEase.TimeSlot[]>('/api/config/time-slots')
 }
 
 export function fetchPrintOptions() {
-  return request.get<Api.PrintEase.PrintOption>({
-    url: '/api/config/print-options'
-  })
+  return getRawConfig<Api.PrintEase.PrintOption>('/api/config/print-options')
 }
 
 export function fetchAllConfig() {
-  return request.get<any>({
-    url: '/api/config/all'
-  })
+  return getRawConfig<any>('/api/config/all')
 }
 
-// ==================== 调度管理（使用商户 API Key 认证） ====================
+function unwrapDispatchResponse<T>(response: BackendResponse<T>) {
+  if (response.code !== 0) throw new Error(response.message || '请求失败')
+  return response.data
+}
+
+function dispatchHeaders() {
+  return { 'x-api-key': localStorage.getItem('dispatchApiKey') || '' }
+}
 
 function dispatchRequest() {
-  const apiKey = localStorage.getItem('dispatchApiKey') || ''
+  const client = axios.create({ baseURL: VITE_API_URL })
   return {
-    get: <T>(url: string, params?: any) =>
-      axios.get<T>(`/api/merchant/tasks${url}`, {
-        headers: { 'x-api-key': apiKey },
+    async get<T>(url: string, params?: any) {
+      const res = await client.get<BackendResponse<T>>(`/api/merchant/tasks${url}`, {
+        headers: dispatchHeaders(),
         params
-      }),
-    post: <T>(url: string, data?: any) =>
-      axios.post<T>(`/api/merchant/tasks${url}`, data, {
-        headers: { 'x-api-key': apiKey }
-      }),
-    put: <T>(url: string, data?: any) =>
-      axios.put<T>(`/api/merchant/tasks${url}`, data, {
-        headers: { 'x-api-key': apiKey }
-      }),
-    delete: <T>(url: string) =>
-      axios.delete<T>(`/api/merchant/tasks${url}`, {
-        headers: { 'x-api-key': apiKey }
       })
+      return unwrapDispatchResponse(res.data)
+    },
+    async post<T>(url: string, data?: any) {
+      const res = await client.post<BackendResponse<T>>(`/api/merchant/tasks${url}`, data, {
+        headers: dispatchHeaders()
+      })
+      return unwrapDispatchResponse(res.data)
+    },
+    async put<T>(url: string, data?: any) {
+      const res = await client.put<BackendResponse<T>>(`/api/merchant/tasks${url}`, data, {
+        headers: dispatchHeaders()
+      })
+      return unwrapDispatchResponse(res.data)
+    },
+    async delete<T>(url: string) {
+      const res = await client.delete<BackendResponse<T>>(`/api/merchant/tasks${url}`, {
+        headers: dispatchHeaders()
+      })
+      return unwrapDispatchResponse(res.data)
+    }
   }
 }
 
@@ -443,7 +629,7 @@ export const dispatchApi = {
   },
 
   fetchTasks(params?: Api.PrintEase.TaskSearchParams) {
-    return dispatchRequest().get<any>('/', params)
+    return dispatchRequest().get<Api.Common.PageResponse<Api.PrintEase.PrintTaskItem>>('/', params)
   },
 
   fetchTaskDetail(id: string) {
@@ -486,15 +672,21 @@ export const dispatchApi = {
     return dispatchRequest().post<any>(`/${orderId}/upload-image`, { imageUrl })
   },
 
-  uploadDeliveryImage(orderId: number, file: File) {
+  async uploadDeliveryImage(orderId: number, file: File) {
     const formData = new FormData()
     formData.append('file', file)
-    return axios.post(`/api/merchant/tasks/${orderId}/upload-delivery-image`, formData, {
-      headers: {
-        'x-api-key': dispatchApi.getApiKey(),
-        'Content-Type': 'multipart/form-data'
+    const res = await axios.post<BackendResponse<{ imageUrl: string }>>(
+      `/api/merchant/tasks/${orderId}/upload-delivery-image`,
+      formData,
+      {
+        baseURL: VITE_API_URL,
+        headers: {
+          'x-api-key': dispatchApi.getApiKey(),
+          'Content-Type': 'multipart/form-data'
+        }
       }
-    })
+    )
+    return unwrapDispatchResponse(res.data)
   },
 
   bindWechat(code: string) {
@@ -506,39 +698,93 @@ export const dispatchApi = {
   }
 }
 
-// ==================== 收入管理 ====================
+export async function fetchIncomeOverview() {
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  monthStart.setHours(0, 0, 0, 0)
 
-export function fetchIncomeOverview() {
-  return request.get<Api.PrintEase.IncomeOverview>({
-    url: '/api/orders/admin/orders/stats'
-  })
+  const [totalStats, monthStats] = await Promise.all([
+    fetchOrderStatsByRange(),
+    fetchOrderStatsByRange({
+      startDate: monthStart.toISOString(),
+      endDate: now.toISOString()
+    })
+  ])
+
+  return {
+    ...normalizeIncomeOverview(totalStats),
+    monthRevenue: Number(monthStats.totalRevenue || 0)
+  }
 }
 
-export function fetchMerchantIncomeList(params?: Api.PrintEase.IncomeSearchParams) {
-  return request.get<Api.Common.PageResponse<Api.PrintEase.MerchantIncomeItem>>({
-    url: '/api/admin/merchants',
-    params
+export async function fetchMerchantIncomeList(params?: Api.PrintEase.IncomeSearchParams) {
+  const [merchants, orders] = await Promise.all([
+    fetchMerchantList({ page: 1, limit: 1000 }),
+    fetchOrderList({ page: 1, limit: 1000, ...params })
+  ])
+  const rankMap = new Map<number, Api.PrintEase.MerchantIncomeItem>()
+
+  merchants.list.forEach((merchant) => {
+    rankMap.set(merchant.id, {
+      merchantId: merchant.id,
+      merchantName: merchant.name,
+      totalOrders: 0,
+      totalRevenue: 0,
+      platformFee: 0,
+      merchantIncome: 0,
+      settlementStatus: '未结算',
+      rank: 0
+    })
   })
+
+  orders.list.forEach((order) => {
+    if (!order.merchantId) return
+    const item = rankMap.get(order.merchantId)
+    if (!item) return
+    item.totalOrders += 1
+    item.totalRevenue += Number(order.totalAmount || 0)
+  })
+
+  const list = Array.from(rankMap.values())
+    .map((item) => ({
+      ...item,
+      platformFee: Number((item.totalRevenue * 0.1).toFixed(2)),
+      merchantIncome: Number((item.totalRevenue * 0.9).toFixed(2))
+    }))
+    .sort((a, b) => b.totalRevenue - a.totalRevenue)
+    .map((item, index) => ({ ...item, rank: index + 1 }))
+
+  return createPageResponse(list, params?.page || 1, params?.limit || 10)
 }
 
-export function fetchIncomeHistoryList(params?: Api.PrintEase.IncomeSearchParams) {
-  return request.get<Api.Common.PageResponse<Api.PrintEase.IncomeHistoryItem>>({
-    url: '/api/orders/admin/list',
-    params
+export async function fetchIncomeHistoryList(params?: Api.PrintEase.IncomeSearchParams) {
+  const orders = await fetchOrderList({
+    page: params?.page || 1,
+    limit: params?.limit || 10,
+    ...params
   })
+  return {
+    ...orders,
+    list: orders.list.map((order) => ({
+      id: order.id,
+      transactionNo: order.mpayTradeNo || String(order.id),
+      type: '订单收入',
+      amount: Number(order.totalAmount || 0),
+      balanceBefore: 0,
+      balanceAfter: 0,
+      relatedId: order.id,
+      relatedNo: String(order.id),
+      description: order.fileName || '打印订单',
+      createTime: order.createdAt
+    }))
+  }
 }
 
 export function fetchIncomeStats(params?: { startDate?: string; endDate?: string }) {
-  return request.get<any>({
-    url: '/api/orders/admin/orders/stats',
-    params
-  })
+  return fetchOrderStatsByRange(params)
 }
 
-export function exportIncomeData(params?: Api.PrintEase.IncomeSearchParams) {
-  return request.get<Blob>({
-    url: '/api/orders/admin/orders/export',
-    params,
-    responseType: 'blob'
-  })
+export async function exportIncomeData(params?: Api.PrintEase.IncomeSearchParams) {
+  const rows = await requestExportRows(params)
+  return exportJsonToBlob(rows, '收入数据')
 }
