@@ -113,14 +113,14 @@
           <ElTableColumn label="纸张" width="70">
             <template #default="{ row }">{{ row.paperSize || '-' }}</template>
           </ElTableColumn>
-          <ElTableColumn label="操作" width="160">
+          <ElTableColumn label="操作" width="180">
             <template #default="{ row }">
               <ElButton
                 link
                 type="primary"
                 size="small"
                 v-if="row.filePath"
-                @click="downloadFile(row.filePath)"
+                @click="downloadOriginalFile(row.fileId, row.file?.fileName || row.fileName)"
                 >下载原文件</ElButton
               >
               <ElButton
@@ -128,7 +128,7 @@
                 type="success"
                 size="small"
                 v-if="row.convertedPdfPath"
-                @click="downloadFile(row.convertedPdfPath)"
+                @click="downloadPdfFile(row.fileId, row.file?.fileName || row.fileName)"
                 >下载 PDF</ElButton
               >
             </template>
@@ -144,14 +144,18 @@
 <script setup lang="ts">
   import { ref, onMounted } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
-  import { ElMessageBox } from 'element-plus'
+  import axios from 'axios'
+  import { ElMessage, ElMessageBox } from 'element-plus'
   import { usePrintEaseOrderStore } from '@/store/modules/printease-order'
   import { OrderStatus, OrderStatusLabel, OrderStatusColor } from '@/enums/printease'
+  import { useUserStore } from '@/store/modules/user'
 
   defineOptions({ name: 'PeOrderDetail' })
   const route = useRoute()
   const router = useRouter()
   const orderStore = usePrintEaseOrderStore()
+  const userStore = useUserStore()
+  const { VITE_API_URL } = import.meta.env
 
   const loading = ref(false)
 
@@ -193,8 +197,42 @@
     return `¥${amount.toFixed(2)}`
   }
 
-  function downloadFile(url: string) {
-    window.open(url, '_blank')
+  function triggerBrowserDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function buildPdfFileName(filename?: string) {
+    if (!filename) return 'download.pdf'
+    const dotIndex = filename.lastIndexOf('.')
+    return dotIndex > 0 ? `${filename.slice(0, dotIndex)}.pdf` : `${filename}.pdf`
+  }
+
+  async function downloadByApi(url: string, filename: string) {
+    try {
+      const response = await axios.get(url, {
+        baseURL: VITE_API_URL,
+        responseType: 'blob',
+        headers: userStore.accessToken
+          ? { Authorization: `Bearer ${userStore.accessToken}` }
+          : undefined
+      })
+      triggerBrowserDownload(response.data, filename)
+    } catch {
+      ElMessage.error('下载失败')
+    }
+  }
+
+  function downloadOriginalFile(fileId: number, filename?: string) {
+    downloadByApi(`/api/files/${fileId}/download`, filename || `file_${fileId}`)
+  }
+
+  function downloadPdfFile(fileId: number, filename?: string) {
+    downloadByApi(`/api/files/${fileId}/download-pdf`, buildPdfFileName(filename))
   }
 
   async function setStatus(status: OrderStatus) {
@@ -202,7 +240,7 @@
       await orderStore.setStatus(orderStore.detail!.id, status)
       await loadDetail()
     } catch {
-      /* 错误已处理 */
+      return
     }
   }
 
@@ -212,7 +250,7 @@
       await orderStore.remove(orderStore.detail!.id)
       router.push('/printease/order')
     } catch {
-      /* 取消 */
+      return
     }
   }
 

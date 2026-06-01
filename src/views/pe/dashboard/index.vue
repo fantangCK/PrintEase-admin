@@ -160,6 +160,18 @@
   const recentOrders = ref<Api.PrintEase.OrderListItem[]>([])
   const orderStats = ref<Api.PrintEase.OrderListResponse['stats'] | null>(null)
 
+  function formatDateKey(date: Date) {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  function normalizeDateKey(value: string) {
+    if (!value) return ''
+    return value.includes('T') ? value.slice(0, 10) : value
+  }
+
   function getChartRange(dim: TimeDimension) {
     const end = new Date()
     end.setHours(23, 59, 59, 999)
@@ -184,7 +196,7 @@
   function getChartData(stats: Awaited<ReturnType<typeof fetchOrderStats>>, dim: TimeDimension) {
     const source = new Map(
       (stats.dailyStats || []).map((item) => [
-        new Date(item.date).toISOString().slice(0, 10),
+        normalizeDateKey(item.date),
         {
           orders: Number(item.count || 0),
           revenue: Number(item.amount || 0)
@@ -199,8 +211,9 @@
 
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date()
+      date.setHours(0, 0, 0, 0)
       date.setDate(date.getDate() - i)
-      const key = date.toISOString().slice(0, 10)
+      const key = formatDateKey(date)
       const data = source.get(key)
       xLabels.push(dim === 'month' ? `${date.getMonth() + 1}/${date.getDate()}` : key.slice(5))
       orders.push(data?.orders || 0)

@@ -50,7 +50,7 @@
       <ElTabPane label="功能开关" name="features">
         <ElCard shadow="never">
           <ElForm label-width="180px" size="default">
-            <ElFormItem label="管理员登录入口" v-for="item in featureItems" :key="item.key">
+            <ElFormItem v-for="item in featureItems" :key="item.key" :label="item.label">
               <ElSwitch v-model="item.value" @change="(v: any) => toggleFeature(item.key, !!v)" />
             </ElFormItem>
           </ElForm>
@@ -140,10 +140,18 @@
   const dailyPopupNoticeForm = reactive({ ...systemStore.dailyPopupNotice })
 
   const featureItems = computed(() => [
-    { key: 'adminEntryEnabled', value: systemStore.featureConfigs.adminEntryEnabled },
-    { key: 'merchantEntryEnabled', value: systemStore.featureConfigs.merchantEntryEnabled },
-    { key: 'paymentEnabled', value: systemStore.featureConfigs.paymentEnabled },
-    { key: 'alipayEnabled', value: systemStore.featureConfigs.alipayEnabled }
+    {
+      key: 'adminEntryEnabled',
+      label: '管理员登录入口',
+      value: systemStore.featureConfigs.adminEntryEnabled
+    },
+    {
+      key: 'merchantEntryEnabled',
+      label: '商户登录入口',
+      value: systemStore.featureConfigs.merchantEntryEnabled
+    },
+    { key: 'paymentEnabled', label: '支付功能', value: systemStore.featureConfigs.paymentEnabled },
+    { key: 'alipayEnabled', label: '支付宝支付', value: systemStore.featureConfigs.alipayEnabled }
   ])
 
   async function savePrice() {

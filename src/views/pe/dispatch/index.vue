@@ -2,7 +2,7 @@
 <template>
   <div class="pe-dispatch art-full-height">
     <ElAlert
-      title="云印调度需商户 API Key 认证，请在下方输入目标商户的 API Key"
+      title="调度数据仅允许管理员通过登录态访问，请先选择目标商户"
       type="info"
       show-icon
       class="mb-4"
@@ -11,15 +11,23 @@
     <ElCard class="mb-4">
       <div class="flex gap-4 items-end">
         <div class="flex-1">
-          <p class="text-sm text-gray-500 mb-1">商户 API Key</p>
-          <ElInput
-            v-model="apiKey"
-            placeholder="请输入商户 API Key"
+          <p class="text-sm text-gray-500 mb-1">目标商户</p>
+          <ElSelect
+            v-model="merchantId"
+            placeholder="请选择商户"
             clearable
-            @change="setApiKey"
-          />
+            filterable
+            class="w-full"
+          >
+            <ElOption
+              v-for="item in merchantOptions"
+              :key="item.id"
+              :label="`${item.name}（ID: ${item.id}）`"
+              :value="item.id"
+            />
+          </ElSelect>
         </div>
-        <ElButton type="primary" :disabled="!apiKey" @click="loadTasks">查询任务</ElButton>
+        <ElButton type="primary" :disabled="!merchantId" @click="loadTasks">查询任务</ElButton>
       </div>
     </ElCard>
 
@@ -56,14 +64,15 @@
 </template>
 
 <script setup lang="ts">
-  import { ref } from 'vue'
+  import { onMounted, ref } from 'vue'
   import { ElMessage } from 'element-plus'
-  import { dispatchApi } from '@/api/printease'
+  import { dispatchApi, fetchMerchantList } from '@/api/printease'
   import { PrintTaskStatus } from '@/enums/printease'
 
   defineOptions({ name: 'PeDispatch' })
 
-  const apiKey = ref('')
+  const merchantId = ref<number | undefined>()
+  const merchantOptions = ref<Api.PrintEase.MerchantListItem[]>([])
   const taskList = ref<any[]>([])
   const taskLoading = ref(false)
   const taskPage = ref(1)
@@ -101,19 +110,27 @@
     return date ? new Date(date).toLocaleString('zh-CN') : ''
   }
 
-  function setApiKey() {
-    dispatchApi.setApiKey(apiKey.value)
+  async function loadMerchantOptions() {
+    try {
+      const res = await fetchMerchantList({ page: 1, limit: 1000 })
+      merchantOptions.value = res.list || []
+    } catch (err: any) {
+      ElMessage.error(err?.response?.data?.message || '商户列表加载失败')
+    }
   }
 
   async function loadTasks() {
-    if (!apiKey.value) {
-      ElMessage.warning('请先输入商户 API Key')
+    if (!merchantId.value) {
+      ElMessage.warning('请先选择商户')
       return
     }
-    setApiKey()
     taskLoading.value = true
     try {
-      const res = await dispatchApi.fetchTasks({ page: taskPage.value, limit: 10 })
+      const res = await dispatchApi.fetchTasks({
+        merchantId: merchantId.value,
+        page: taskPage.value,
+        limit: 10
+      })
       taskList.value = res.list || []
       taskTotal.value = res.total || 0
     } catch (err: any) {
@@ -122,4 +139,8 @@
       taskLoading.value = false
     }
   }
+
+  onMounted(() => {
+    loadMerchantOptions()
+  })
 </script>
